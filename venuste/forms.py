@@ -1,4 +1,5 @@
 from django import forms
+from django.core.exceptions import ValidationError
 from django.contrib.auth.forms import (
     AuthenticationForm,
     PasswordChangeForm,
@@ -8,6 +9,7 @@ from django.contrib.auth.models import User
 from PIL import Image
 
 from .models import UserProfile
+from .throttling import LoginThrottle
 
 
 class RegistrationForm(UserCreationForm):
@@ -27,6 +29,20 @@ class RegistrationForm(UserCreationForm):
 class LoginForm(AuthenticationForm):
     username = forms.CharField(max_length=150)
     password = forms.CharField(widget=forms.PasswordInput)
+
+    def clean(self):
+        username = self.data.get("username", "")
+        throttle = LoginThrottle(self.request, username)
+
+        try:
+            throttle.ensure_allowed()
+            cleaned_data = super().clean()
+        except ValidationError:
+            throttle.record_failure()
+            raise
+
+        throttle.record_success()
+        return cleaned_data
 
 
 class CustomPasswordChangeForm(PasswordChangeForm):

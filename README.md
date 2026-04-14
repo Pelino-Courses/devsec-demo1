@@ -88,6 +88,14 @@ Implementation uses Django-native authorization controls:
 - Kept protection server-side in views while preserving template-level CSRF tokens in all POST forms.
 - Added strict CSRF tests using a client with `enforce_csrf_checks=True` to prove behavior under real middleware validation.
 
+### Brute-Force Resistance Strategy
+
+- Added a simple hybrid login throttle keyed by account name and client IP address.
+- After repeated failed login attempts, the same username/IP pair is paused for a short cooldown window.
+- Successful authentication clears the stored failure state so legitimate users can recover quickly.
+- The lockout message is explicit and time-bounded so the flow remains understandable and usable.
+- The control uses Django's cache layer, which keeps the implementation easy to audit and test.
+
 ### Tests
 
 Run app tests with:
@@ -107,3 +115,4 @@ Covered tests include:
 - RBAC allow/deny tests for anonymous, standard, staff, and instructor-group users
 - IDOR tests for owner-allowed and cross-user denied profile access/modification paths
 - CSRF tests for missing-token rejection and valid-token acceptance on profile update and password reset request flows
+- Login brute-force tests for normal success, repeated failure lockout, and cooldown expiry

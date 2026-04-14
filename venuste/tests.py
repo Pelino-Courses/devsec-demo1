@@ -2,7 +2,9 @@ import io
 import shutil
 import tempfile
 import re
+from unittest.mock import patch
 
+from django.core.cache import cache
 from django.contrib.auth.models import Group, Permission, User
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -32,6 +34,7 @@ class AuthenticationFlowTests(TestCase):
         super().tearDownClass()
 
     def setUp(self):
+        cache.clear()
         self.user = User.objects.create_user(
             username="existinguser",
             email="existing@example.com",
@@ -93,6 +96,66 @@ class AuthenticationFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Please enter a correct username and password")
+
+    def test_login_lockout_after_repeated_failures(self):
+        lockout_client = Client()
+
+        for _ in range(5):
+            response = lockout_client.post(
+                reverse("venuste:login"),
+                {
+                    "username": "existinguser",
+                    "password": "WrongPass123!",
+                },
+            )
+            self.assertEqual(response.status_code, 200)
+
+        locked_response = lockout_client.post(
+            reverse("venuste:login"),
+            {
+                "username": "existinguser",
+                "password": "StrongPass123!",
+            },
+        )
+        self.assertEqual(locked_response.status_code, 200)
+        self.assertContains(
+            locked_response,
+            "Too many failed login attempts. Try again in 15 minutes.",
+        )
+        self.assertFalse(lockout_client.session.get("_auth_user_id"))
+
+    def test_login_lockout_expires_after_cooldown(self):
+        lockout_client = Client()
+
+        for _ in range(5):
+            lockout_client.post(
+                reverse("venuste:login"),
+                {
+                    "username": "existinguser",
+                    "password": "WrongPass123!",
+                },
+            )
+
+        with patch("venuste.throttling.timezone.now") as mocked_now:
+            import datetime
+
+            mocked_now.return_value = datetime.datetime(2026, 4, 14, 12, 0, tzinfo=datetime.timezone.utc)
+            cache_key_prefix = "login-throttle:account:existinguser"
+            state = cache.get(cache_key_prefix)
+            self.assertIsNotNone(state)
+            mocked_now.return_value = state["locked_until"] + datetime.timedelta(seconds=1)
+
+            response = lockout_client.post(
+                reverse("venuste:login"),
+                {
+                    "username": "existinguser",
+                    "password": "StrongPass123!",
+                },
+                follow=True,
+            )
+
+        self.assertRedirects(response, reverse("venuste:dashboard"))
+        self.assertTrue(lockout_client.session.get("_auth_user_id"))
 
     def test_dashboard_requires_authentication(self):
         response = self.client.get(reverse("venuste:dashboard"))

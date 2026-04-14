@@ -123,6 +123,9 @@ STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+LOGIN_THROTTLE_FAILURE_LIMIT = 5
+LOGIN_THROTTLE_LOCKOUT_SECONDS = 15 * 60
+
 LOGIN_URL = 'venuste:login'
 LOGIN_REDIRECT_URL = 'venuste:dashboard'
 LOGOUT_REDIRECT_URL = 'venuste:login'
