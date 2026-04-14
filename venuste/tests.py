@@ -6,6 +6,7 @@ import re
 from django.contrib.auth.models import Group, Permission, User
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import Client
 from django.test import override_settings
 from django.test import TestCase
 from django.urls import reverse
@@ -359,3 +360,58 @@ class AuthenticationFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "The two password fields didn’t match")
+
+    def test_profile_update_rejects_missing_csrf_token(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.login(username="existinguser", password="StrongPass123!")
+        response = csrf_client.post(
+            reverse("venuste:profile"),
+            {
+                "bio": "CSRF attack attempt",
+            },
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_profile_update_accepts_valid_csrf_token(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.login(username="existinguser", password="StrongPass123!")
+        csrf_client.get(reverse("venuste:profile"))
+        csrf_token = csrf_client.cookies["csrftoken"].value
+
+        response = csrf_client.post(
+            reverse("venuste:profile"),
+            {
+                "bio": "CSRF-safe update",
+                "csrfmiddlewaretoken": csrf_token,
+            },
+        )
+        self.user.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.user.profile.bio, "CSRF-safe update")
+
+    def test_password_reset_request_rejects_missing_csrf_token(self):
+        mail.outbox.clear()
+        csrf_client = Client(enforce_csrf_checks=True)
+        response = csrf_client.post(
+            reverse("venuste:password_reset"),
+            {"email": "existing@example.com"},
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_password_reset_request_accepts_valid_csrf_token(self):
+        mail.outbox.clear()
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.get(reverse("venuste:password_reset"))
+        csrf_token = csrf_client.cookies["csrftoken"].value
+        response = csrf_client.post(
+            reverse("venuste:password_reset"),
+            {
+                "email": "existing@example.com",
+                "csrfmiddlewaretoken": csrf_token,
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "If an account exists")
+        self.assertEqual(len(mail.outbox), 1)

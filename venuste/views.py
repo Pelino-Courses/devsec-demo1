@@ -5,6 +5,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import redirect_to_login
 from django.contrib.auth.views import LoginView, PasswordChangeDoneView, PasswordChangeView
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_protect
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView
 
@@ -53,6 +55,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         return context
 
 
+@method_decorator(csrf_protect, name="dispatch")
 class ProfileView(LoginRequiredMixin, TemplateView):
     template_name = "venuste/profile.html"
     login_url = "venuste:login"
@@ -75,6 +78,7 @@ class ProfileView(LoginRequiredMixin, TemplateView):
         return self.render_to_response(context)
 
 
+@method_decorator(csrf_protect, name="dispatch")
 class ProfileManageByIdView(LoginRequiredMixin, TemplateView):
     template_name = "venuste/profile_manage.html"
     login_url = "venuste:login"
@@ -138,6 +142,7 @@ class PrivilegedPortalView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         return context
 
 
+@csrf_protect
 def signup_view(request):
     if request.user.is_authenticated:
         return redirect("venuste:dashboard")

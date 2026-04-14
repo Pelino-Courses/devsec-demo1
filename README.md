@@ -81,6 +81,13 @@ Implementation uses Django-native authorization controls:
 - Unauthorized standard-user access to other profile identifiers returns `404`, reducing resource existence leakage.
 - Authentication-only assumptions were removed for identifier-based access and replaced with explicit object filtering by current user.
 
+### CSRF Misuse Fix Strategy
+
+- Enforced CSRF checks on state-changing profile update and signup handlers using explicit CSRF protection decorators.
+- Verified password reset request form remains CSRF-protected and rejects cross-site tokenless submissions.
+- Kept protection server-side in views while preserving template-level CSRF tokens in all POST forms.
+- Added strict CSRF tests using a client with `enforce_csrf_checks=True` to prove behavior under real middleware validation.
+
 ### Tests
 
 Run app tests with:
@@ -99,3 +106,4 @@ Covered tests include:
 - Profile picture upload success and invalid upload rejection
 - RBAC allow/deny tests for anonymous, standard, staff, and instructor-group users
 - IDOR tests for owner-allowed and cross-user denied profile access/modification paths
+- CSRF tests for missing-token rejection and valid-token acceptance on profile update and password reset request flows
