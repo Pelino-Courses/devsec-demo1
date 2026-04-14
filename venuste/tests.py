@@ -1,16 +1,21 @@
 import io
 import shutil
 import tempfile
+import re
 
 from django.contrib.auth.models import Group, Permission, User
+from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.test import TestCase
-from django.test.utils import override_settings
 from django.urls import reverse
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
 from PIL import Image
 
 
-@override_settings()
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
 class AuthenticationFlowTests(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -265,3 +270,92 @@ class AuthenticationFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("venuste:login"), response.url)
+
+    def test_password_reset_request_sends_email_for_existing_user(self):
+        mail.outbox.clear()
+        response = self.client.post(
+            reverse("venuste:password_reset"),
+            {"email": "existing@example.com"},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "If an account exists")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Venuste password reset instructions", mail.outbox[0].subject)
+
+    def test_password_reset_request_does_not_enumerate_missing_user(self):
+        mail.outbox.clear()
+        response = self.client.post(
+            reverse("venuste:password_reset"),
+            {"email": "missing@example.com"},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "If an account exists")
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_password_reset_confirm_invalid_token_is_rejected_safely(self):
+        response = self.client.get(
+            reverse(
+                "venuste:password_reset_confirm",
+                kwargs={"uidb64": "invalid", "token": "invalid-token"},
+            ),
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Invalid or Expired Link")
+
+    def test_password_reset_confirm_updates_password(self):
+        mail.outbox.clear()
+        response = self.client.post(
+            reverse("venuste:password_reset"),
+            {"email": "existing@example.com"},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+
+        email_body = mail.outbox[0].body
+        match = re.search(r"http://testserver(?P<path>/reset/.+/)", email_body)
+        self.assertIsNotNone(match)
+        reset_path = match.group("path")
+
+        form_response = self.client.get(reset_path, follow=True)
+        self.assertEqual(form_response.status_code, 200)
+        confirm_path = form_response.request["PATH_INFO"]
+
+        reset_response = self.client.post(
+            confirm_path,
+            {
+                "new_password1": "ResetStrongPass123!",
+                "new_password2": "ResetStrongPass123!",
+            },
+            follow=True,
+        )
+
+        self.user.refresh_from_db()
+        self.assertEqual(reset_response.status_code, 200)
+        self.assertContains(reset_response, "Password Updated")
+        self.assertTrue(self.user.check_password("ResetStrongPass123!"))
+
+    def test_password_reset_confirm_rejects_password_mismatch(self):
+        uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+        form_response = self.client.get(
+            reverse(
+                "venuste:password_reset_confirm",
+                kwargs={"uidb64": uidb64, "token": token},
+            ),
+            follow=True,
+        )
+        confirm_path = form_response.request["PATH_INFO"]
+        response = self.client.post(
+            confirm_path,
+            {
+                "new_password1": "ResetStrongPass123!",
+                "new_password2": "DifferentStrongPass123!",
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "The two password fields didn’t match")

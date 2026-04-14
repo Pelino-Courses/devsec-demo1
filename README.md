@@ -11,6 +11,7 @@ This project now includes a complete Django authentication app named `venuste` f
 - User login/logout
 - Protected dashboard
 - Password change flow
+- Secure password reset flow
 - Basic profile/account page
 - Role-based access control for privileged portal
 - Admin integration for `UserProfile`
@@ -46,7 +47,17 @@ This project now includes a complete Django authentication app named `venuste` f
 - `/dashboard/` protected dashboard
 - `/profile/` protected profile page
 - `/password-change/` change password
+- `/password-reset/` request a secure password reset
+- `/reset/<uidb64>/<token>/` confirm password reset with token
 - `/authorization/` privileged role-only portal
+
+### Password Reset Strategy
+
+- Uses Django's built-in token-based password reset views.
+- Avoids user enumeration by showing the same request confirmation page regardless of whether the email exists.
+- Sends reset emails only when a matching account exists.
+- Uses Django's password validation rules when setting a new password.
+- Keeps token handling, confirmation, and completion in Django-native views and templates.
 
 ### Authorization Strategy (RBAC)
 
@@ -84,6 +95,7 @@ Covered tests include:
 - Login success and failure
 - Access control for protected page
 - Password change success
+- Password reset request, confirmation, and completion
 - Profile picture upload success and invalid upload rejection
 - RBAC allow/deny tests for anonymous, standard, staff, and instructor-group users
 - IDOR tests for owner-allowed and cross-user denied profile access/modification paths
