@@ -1,0 +1,33 @@
+{% extends 'venuste/base.html' %}
+
+{% block title %}Sign In - Venuste{% endblock %}
+
+{% block content %}
+<h1>Welcome Back</h1>
+<p class="subtitle">Enter your credentials to access your secure account</p>
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+        {{ form.non_field_errors }}
+    {% endif %}
+    
+    {% for field in form %}
+        <p>
+            {% if field.label %}
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {% endif %}
+            {{ field }}
+            {% if field.errors %}
+                {{ field.errors }}
+            {% endif %}
+        </p>
+    {% endfor %}
+    
+    <button type="submit">Sign In</button>
+</form>
+
+<div class="form-footer">
+    <p>Don't have an account? <a href="{% url 'venuste:signup' %}">Create one now</a></p>
+</div>
+{% endblock %}

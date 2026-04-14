@@ -1,0 +1,67 @@
+{% extends 'venuste/base.html' %}
+
+{% block title %}Your Profile - Venuste{% endblock %}
+
+{% block content %}
+<h1>Account Profile</h1>
+<p class="subtitle">Your account details at a glance.</p>
+
+<div class="view-stack">
+    <div class="profile-item" style="grid-column: 1 / -1;">
+        <span class="label">Profile Picture</span>
+        {% if request.user.profile.profile_picture %}
+            <img
+                src="{{ request.user.profile.profile_picture.url }}"
+                alt="{{ request.user.username }} profile picture"
+                style="display:block;width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid #d7dff0;margin:0.35rem 0 0.65rem 0;"
+            >
+        {% else %}
+            <span class="value">No profile picture uploaded.</span>
+        {% endif %}
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            {{ form.non_field_errors }}
+        {% endif %}
+
+        <p>
+            <label for="{{ form.bio.id_for_label }}">{{ form.bio.label }}</label>
+            {{ form.bio }}
+            {% if form.bio.errors %}
+                {{ form.bio.errors }}
+            {% endif %}
+        </p>
+        <p>
+            <label for="{{ form.profile_picture.id_for_label }}">{{ form.profile_picture.label }}</label>
+            {{ form.profile_picture }}
+            {% if form.profile_picture.errors %}
+                {{ form.profile_picture.errors }}
+            {% endif %}
+            <span class="hint">Accepted: JPG, PNG, WEBP. Max size: 2MB.</span>
+        </p>
+        <button type="submit">Save Profile</button>
+    </form>
+
+    <div class="profile-grid">
+        <div class="profile-item">
+            <span class="label">Username</span>
+            <span class="value">{{ request.user.username }}</span>
+        </div>
+        <div class="profile-item">
+            <span class="label">Email</span>
+            <span class="value">{{ request.user.email|default:"Not provided" }}</span>
+        </div>
+        <div class="profile-item" style="grid-column: 1 / -1;">
+            <span class="label">Bio</span>
+            <span class="value">{{ request.user.profile.bio|default:"No bio added yet." }}</span>
+        </div>
+    </div>
+
+    <div class="action-grid">
+        <a href="{% url 'venuste:dashboard' %}" class="action-link primary">Back to Dashboard</a>
+        <a href="{% url 'venuste:password_change' %}" class="action-link warn">Change Password</a>
+    </div>
+</div>
+{% endblock %}

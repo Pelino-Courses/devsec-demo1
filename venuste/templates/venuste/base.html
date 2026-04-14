@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Venuste Authentication{% endblock %}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Sora:wght@600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            font-family: "Manrope", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-attachment: fixed;
+            color: #2d3748;
+            min-height: 100vh;
+            min-height: 100dvh;
+            overflow: hidden;
+            display: grid;
+            grid-template-rows: 64px 1fr;
+        }
+
+        /* Navigation */
+        .navbar {
+            background: rgba(20, 20, 35, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 0 1.25rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+        }
+
+        .navbar-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .navbar-brand {
+            font-family: "Sora", sans-serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #fff;
+            text-decoration: none;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .navbar-links {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex: 1;
+            justify-content: flex-end;
+        }
+
+        .navbar-links a {
+            color: #e0e0f0;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.88rem;
+            transition: all 0.3s ease;
+            position: relative;
+            padding: 0.3rem 0;
+        }
+
+        .navbar-links a:hover {
+            color: #667eea;
+        }
+
+        .navbar-links a::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -5px;
+            left: 0;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+        }
+
+        .navbar-links a:hover::after {
+            width: 100%;
+        }
+
+        .logout-form {
+            display: inline;
+            margin: 0;
+        }
+
+        .logout-btn {
+            background: none;
+            border: none;
+            color: #e0e0f0;
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 0.88rem;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            color: #667eea;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 0.75rem;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .content-wrapper {
+            display: flex;
+            justify-content: center;
+            min-height: 0;
+            height: calc(100vh - 64px);
+            height: calc(100dvh - 64px);
+            align-items: center;
+            padding: 0;
+        }
+
+        /* Card */
+        .card {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 1.25rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            width: 100%;
+            max-width: 760px;
+            max-height: calc(100vh - 96px);
+            max-height: calc(100dvh - 96px);
+            overflow: auto;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Messages */
+        .messages {
+            margin-bottom: 0.75rem;
+        }
+
+        .message {
+            padding: 0.65rem 0.8rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            font-size: 0.86rem;
+            font-weight: 500;
+            border-left: 4px solid;
+            animation: slideDown 0.4s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.success {
+            background: #f0fdf4;
+            color: #15803d;
+            border-left-color: #22c55e;
+        }
+
+        .message.error {
+            background: #fef2f2;
+            color: #b91c1c;
+            border-left-color: #ef4444;
+        }
+
+        .message.info {
+            background: #f0f9ff;
+            color: #0369a1;
+            border-left-color: #0ea5e9;
+        }
+
+        /* Typography */
+        h1, h2, h3 {
+            color: #1a202c;
+            margin-bottom: 0.3rem;
+        }
+
+        h1 {
+            font-family: "Sora", sans-serif;
+            font-size: clamp(1.25rem, 2.2vw, 1.7rem);
+            margin-bottom: 0.45rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        h2 {
+            font-size: 1.2rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .subtitle {
+            color: #718096;
+            font-size: 0.85rem;
+            margin-bottom: 0.8rem;
+            line-height: 1.35;
+        }
+
+        /* Forms */
+        form p {
+            margin-bottom: 0.65rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-weight: 600;
+            color: #2d3748;
+            font-size: 0.82rem;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        textarea {
+            width: 100%;
+            padding: 0.58rem 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.86rem;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            background: #f7fafc;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus,
+        textarea:focus {
+            outline: none;
+            background: #fff;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        input::placeholder {
+            color: #a0aec0;
+        }
+
+        /* Error messages */
+        .errorlist {
+            list-style: none;
+            margin: 0.28rem 0 0.45rem 0;
+        }
+
+        .errorlist li {
+            color: #b91c1c;
+            font-size: 0.78rem;
+            margin-bottom: 0.3rem;
+            background: #fef2f2;
+            padding: 0.35rem 0.5rem;
+            border-radius: 6px;
+            border-left: 3px solid #ef4444;
+        }
+
+        /* Buttons */
+        button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            padding: 0.58rem 1rem;
+            font-weight: 600;
+            font-size: 0.84rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 0.2rem;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* Links */
+        a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        a:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        .help,
+        .hint {
+            font-size: 0.76rem;
+            color: #718096;
+            margin-top: 0.3rem;
+            line-height: 1.25;
+        }
+
+        .divider {
+            text-align: center;
+            margin: 1.5rem 0;
+            color: #cbd5e0;
+            font-size: 0.9rem;
+        }
+
+        .form-footer {
+            text-align: center;
+            margin-top: 0.7rem;
+            padding-top: 0.7rem;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .form-footer p {
+            margin: 0;
+            color: #718096;
+            font-size: 0.82rem;
+        }
+
+        .view-stack {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .status-grid,
+        .action-grid,
+        .profile-grid {
+            display: grid;
+            gap: 0.65rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .status-panel,
+        .profile-item,
+        .success-panel {
+            padding: 0.7rem 0.8rem;
+            border-radius: 10px;
+            background: #f8f9fe;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .status-panel p,
+        .profile-item p {
+            margin: 0;
+            font-size: 0.82rem;
+            line-height: 1.35;
+        }
+
+        .profile-item .label {
+            display: block;
+            margin-bottom: 0.18rem;
+            font-size: 0.75rem;
+            color: #5b66a9;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 700;
+        }
+
+        .profile-item .value {
+            font-size: 0.9rem;
+            color: #1a202c;
+            font-weight: 600;
+        }
+
+        .action-link {
+            display: block;
+            padding: 0.62rem;
+            border-radius: 9px;
+            text-align: center;
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-decoration: none;
+            color: #243246;
+            border: 1px solid #d7dff0;
+            background: #f7f9ff;
+        }
+
+        .action-link.primary {
+            background: #eef5ff;
+            border-color: #9ec5ff;
+            color: #0b4da8;
+        }
+
+        .action-link.warn {
+            background: #fff1f2;
+            border-color: #f5b5bc;
+            color: #a10818;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body {
+                grid-template-rows: auto 1fr;
+                overflow: auto;
+            }
+
+            .card {
+                padding: 1rem;
+                max-height: none;
+                border-radius: 12px;
+            }
+
+            .navbar-content {
+                gap: 0.65rem;
+                flex-wrap: wrap;
+            }
+
+            .navbar-links {
+                gap: 0.65rem;
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            h1 {
+                font-size: 1.2rem;
+            }
+
+            h2 {
+                font-size: 1.05rem;
+            }
+
+            .status-grid,
+            .action-grid,
+            .profile-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar">
+    <div class="navbar-content">
+        <a href="{% url 'venuste:home' %}" class="navbar-brand">Venuste</a>
+        <div class="navbar-links">
+            {% if request.user.is_authenticated %}
+                <a href="{% url 'venuste:dashboard' %}">Dashboard</a>
+                <a href="{% url 'venuste:profile' %}">Profile</a>
+                <a href="{% url 'venuste:password_change' %}">Change Password</a>
+                <form method="post" action="{% url 'venuste:logout' %}" class="logout-form">
+                    {% csrf_token %}
+                    <button type="submit" class="logout-btn">Logout</button>
+                </form>
+            {% else %}
+                <a href="{% url 'venuste:login' %}">Login</a>
+                <a href="{% url 'venuste:signup' %}">Sign Up</a>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+
+<div class="content-wrapper">
+    <div class="container">
+        <div class="card">
+            {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                        <div class="message {{ message.tags|default:'info' }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+</div>
+</body>
+</html>

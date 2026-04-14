@@ -1,0 +1,20 @@
+{% extends 'venuste/base.html' %}
+
+{% block title %}Dashboard - Venuste{% endblock %}
+
+{% block content %}
+<div class="view-stack" style="text-align: center;">
+    <h1>Welcome, {{ request.user.username }}!</h1>
+    <p class="subtitle">Your account is active and secure.</p>
+
+    <div class="status-grid">
+        <div class="status-panel"><p><strong>Status</strong><br>Active</p></div>
+        <div class="status-panel"><p><strong>Security</strong><br>Protected</p></div>
+    </div>
+
+    <div class="action-grid">
+        <a href="{% url 'venuste:profile' %}" class="action-link">View Profile</a>
+        <a href="{% url 'venuste:password_change' %}" class="action-link primary">Change Password</a>
+    </div>
+</div>
+{% endblock %}
