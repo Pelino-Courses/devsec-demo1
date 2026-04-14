@@ -3,6 +3,7 @@ from django.urls import path
 
 from .views import (
     DashboardView,
+    ProfileManageByIdView,
     ProfileView,
     PrivilegedPortalView,
     UserLoginView,
@@ -22,6 +23,7 @@ urlpatterns = [
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("authorization/", PrivilegedPortalView.as_view(), name="privileged_portal"),
     path("profile/", ProfileView.as_view(), name="profile"),
+    path("profiles/<int:profile_id>/", ProfileManageByIdView.as_view(), name="profile_manage"),
     path("password-change/", UserPasswordChangeView.as_view(), name="password_change"),
     path(
         "password-change/done/",

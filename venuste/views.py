@@ -4,7 +4,7 @@ from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import redirect_to_login
 from django.contrib.auth.views import LoginView, PasswordChangeDoneView, PasswordChangeView
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView
 
@@ -14,6 +14,7 @@ from .forms import (
     ProfileUpdateForm,
     RegistrationForm,
 )
+from .models import UserProfile
 
 User = get_user_model()
 
@@ -27,6 +28,13 @@ def is_privileged_user(user):
         or user.has_perm("venuste.access_privileged_portal")
         or user.groups.filter(name="instructors").exists()
     )
+
+
+def get_accessible_profile(user, profile_id):
+    profiles = UserProfile.objects.select_related("user")
+    if is_privileged_user(user):
+        return get_object_or_404(profiles, pk=profile_id)
+    return get_object_or_404(profiles, pk=profile_id, user=user)
 
 
 class UserLoginView(LoginView):
@@ -65,6 +73,35 @@ class ProfileView(LoginRequiredMixin, TemplateView):
         messages.error(request, "Please correct the profile form errors.")
         context = self.get_context_data(form=form)
         return self.render_to_response(context)
+
+
+class ProfileManageByIdView(LoginRequiredMixin, TemplateView):
+    template_name = "venuste/profile_manage.html"
+    login_url = "venuste:login"
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        self.target_profile = get_accessible_profile(request.user, kwargs["profile_id"])
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["target_profile"] = self.target_profile
+        context["is_privileged_user"] = is_privileged_user(self.request.user)
+        context["form"] = kwargs.get("form") or ProfileUpdateForm(instance=self.target_profile)
+        context["is_owner"] = self.target_profile.user_id == self.request.user.id
+        return context
+
+    def post(self, request, *args, **kwargs):
+        form = ProfileUpdateForm(request.POST, request.FILES, instance=self.target_profile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profile updated successfully.")
+            return redirect("venuste:profile_manage", profile_id=self.target_profile.id)
+
+        messages.error(request, "Please correct the profile form errors.")
+        return self.render_to_response(self.get_context_data(form=form))
 
 
 class UserPasswordChangeView(LoginRequiredMixin, PasswordChangeView):

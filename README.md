@@ -61,6 +61,15 @@ Implementation uses Django-native authorization controls:
 - Server-side enforcement in views via `UserPassesTestMixin`
 - Template-level hiding of privileged navigation/actions for non-privileged users
 
+### IDOR Prevention Strategy
+
+- Added explicit object-level protection for identifier-based profile routes.
+- New route: `/profiles/<profile_id>/` applies ownership checks server-side.
+- Standard users can only access their own profile object.
+- Privileged users (staff/superuser/authorized instructor roles) can access other profiles for administrative workflows.
+- Unauthorized standard-user access to other profile identifiers returns `404`, reducing resource existence leakage.
+- Authentication-only assumptions were removed for identifier-based access and replaced with explicit object filtering by current user.
+
 ### Tests
 
 Run app tests with:
@@ -77,3 +86,4 @@ Covered tests include:
 - Password change success
 - Profile picture upload success and invalid upload rejection
 - RBAC allow/deny tests for anonymous, standard, staff, and instructor-group users
+- IDOR tests for owner-allowed and cross-user denied profile access/modification paths

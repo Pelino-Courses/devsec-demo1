@@ -185,3 +185,83 @@ class AuthenticationFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Authorization Portal")
         instructor_user.delete()
+
+    def test_owner_can_access_profile_by_id(self):
+        self.client.login(username="existinguser", password="StrongPass123!")
+        response = self.client.get(
+            reverse("venuste:profile_manage", kwargs={"profile_id": self.user.profile.id})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Secure Profile Management")
+
+    def test_owner_can_update_profile_by_id(self):
+        self.client.login(username="existinguser", password="StrongPass123!")
+        response = self.client.post(
+            reverse("venuste:profile_manage", kwargs={"profile_id": self.user.profile.id}),
+            {
+                "bio": "Owner-updated bio",
+            },
+            follow=True,
+        )
+        self.user.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.user.profile.bio, "Owner-updated bio")
+
+    def test_standard_user_cannot_view_other_profile_by_id(self):
+        other_user = User.objects.create_user(
+            username="otheruser",
+            email="other@example.com",
+            password="StrongPass123!",
+        )
+        self.client.login(username="existinguser", password="StrongPass123!")
+        response = self.client.get(
+            reverse("venuste:profile_manage", kwargs={"profile_id": other_user.profile.id})
+        )
+        self.assertEqual(response.status_code, 404)
+        other_user.delete()
+
+    def test_standard_user_cannot_modify_other_profile_by_id(self):
+        other_user = User.objects.create_user(
+            username="otheruser2",
+            email="other2@example.com",
+            password="StrongPass123!",
+        )
+        self.client.login(username="existinguser", password="StrongPass123!")
+        response = self.client.post(
+            reverse("venuste:profile_manage", kwargs={"profile_id": other_user.profile.id}),
+            {
+                "bio": "Malicious overwrite attempt",
+            },
+        )
+        other_user.refresh_from_db()
+        self.assertEqual(response.status_code, 404)
+        self.assertNotEqual(other_user.profile.bio, "Malicious overwrite attempt")
+        other_user.delete()
+
+    def test_staff_user_can_access_other_profile_by_id(self):
+        other_user = User.objects.create_user(
+            username="otheruser3",
+            email="other3@example.com",
+            password="StrongPass123!",
+        )
+        staff_user = User.objects.create_user(
+            username="staffidor",
+            email="staffidor@example.com",
+            password="StrongPass123!",
+            is_staff=True,
+        )
+        self.client.login(username="staffidor", password="StrongPass123!")
+        response = self.client.get(
+            reverse("venuste:profile_manage", kwargs={"profile_id": other_user.profile.id})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, other_user.username)
+        staff_user.delete()
+        other_user.delete()
+
+    def test_anonymous_redirected_from_profile_by_id(self):
+        response = self.client.get(
+            reverse("venuste:profile_manage", kwargs={"profile_id": self.user.profile.id})
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("venuste:login"), response.url)
