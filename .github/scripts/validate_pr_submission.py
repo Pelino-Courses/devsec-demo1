@@ -6,6 +6,7 @@ import re
 import sys
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from pathlib import Path
 
@@ -46,6 +47,14 @@ ISSUE_REFERENCE_PATTERN = re.compile(
     flags=re.IGNORECASE,
 )
 REQUIRED_BRANCH_HEADING = "Required submission branch"
+PROTECTED_ASSIGNMENT_PATH_PREFIXES = (
+    ".github/",
+    "docs/assignment-issues/",
+    "scripts/",
+)
+PROTECTED_ASSIGNMENT_PATHS = {
+    "docs/review-workflow.md",
+}
 
 
 def _load_pull_request_body() -> str:
@@ -133,6 +142,11 @@ def _is_assignment_submission(body: str, base_ref: str) -> bool:
 
 
 def _fetch_issue_body(issue_number: int) -> str:
+    issue = _github_api_get(f"issues/{issue_number}")
+    return issue.get("body") or ""
+
+
+def _github_api_get(path: str, query: dict[str, Any] | None = None) -> Any:
     payload = _load_event_payload()
     repo = payload.get("repository", {})
     full_name = repo.get("full_name")
@@ -144,8 +158,12 @@ def _fetch_issue_body(issue_number: int) -> str:
     if not token:
         raise RuntimeError("GITHUB_TOKEN is not set")
 
+    url = f"{api_url_base}/repos/{full_name}/{path}"
+    if query:
+        url = f"{url}?{urlencode(query)}"
+
     request = Request(
-        f"{api_url_base}/repos/{full_name}/issues/{issue_number}",
+        url,
         headers={
             "Accept": "application/vnd.github+json",
             "Authorization": f"Bearer {token}",
@@ -156,13 +174,52 @@ def _fetch_issue_body(issue_number: int) -> str:
 
     try:
         with urlopen(request) as response:
-            issue = json.load(response)
+            return json.load(response)
     except HTTPError as exc:
-        raise RuntimeError(f"Failed to fetch issue #{issue_number}: HTTP {exc.code}") from exc
+        raise RuntimeError(f"GitHub API request for '{path}' failed: HTTP {exc.code}") from exc
     except URLError as exc:
-        raise RuntimeError(f"Failed to fetch issue #{issue_number}: {exc.reason}") from exc
+        raise RuntimeError(f"GitHub API request for '{path}' failed: {exc.reason}") from exc
 
-    return issue.get("body") or ""
+
+def _fetch_pull_request_files() -> list[str]:
+    payload = _load_event_payload()
+    pull_request_number = payload.get("pull_request", {}).get("number")
+    if not pull_request_number:
+        raise RuntimeError("Pull request number is missing from GitHub event payload")
+
+    filenames: list[str] = []
+    page = 1
+
+    while True:
+        response = _github_api_get(
+            f"pulls/{pull_request_number}/files",
+            {"per_page": 100, "page": page},
+        )
+        if not isinstance(response, list):
+            raise RuntimeError("GitHub API returned an unexpected pull request files payload")
+
+        filenames.extend(
+            item["filename"]
+            for item in response
+            if isinstance(item, dict) and isinstance(item.get("filename"), str)
+        )
+
+        if len(response) < 100:
+            break
+        page += 1
+
+    return filenames
+
+
+def _find_protected_assignment_paths(changed_files: list[str]) -> list[str]:
+    return sorted(
+        {
+            path
+            for path in changed_files
+            if path in PROTECTED_ASSIGNMENT_PATHS
+            or any(path.startswith(prefix) for prefix in PROTECTED_ASSIGNMENT_PATH_PREFIXES)
+        },
+    )
 
 
 def _extract_required_branch_from_issue(issue_body: str) -> str | None:
@@ -226,10 +283,30 @@ def _validate_assignment_linking(body: str, base_ref: str) -> list[str]:
     return errors
 
 
+def _validate_protected_assignment_paths(body: str, base_ref: str) -> list[str]:
+    if not _is_assignment_submission(body, base_ref):
+        return []
+
+    restricted_files = _find_protected_assignment_paths(_fetch_pull_request_files())
+    if not restricted_files:
+        return []
+
+    errors = [
+        "Assignment submissions must not modify instructor-facing or repository-maintenance files unrelated to the assignment.",
+    ]
+    errors.extend(f"Restricted file changed: {path}" for path in restricted_files)
+    return errors
+
+
 def main() -> int:
     payload = _load_event_payload()
     body = payload.get("pull_request", {}).get("body") or ""
     base_ref = payload.get("pull_request", {}).get("base", {}).get("ref") or ""
+
+    if not _is_assignment_submission(body, base_ref):
+        print("Skipping student submission validation for a non-assignment pull request.")
+        return 0
+
     if not body.strip():
         print("Pull request body is empty.")
         return 1
@@ -238,8 +315,15 @@ def main() -> int:
     empty_sections = _find_empty_sections(body)
     unchecked_items = _find_unchecked_checklist_items(body)
     assignment_linking_errors = _validate_assignment_linking(body, base_ref)
+    protected_path_errors = _validate_protected_assignment_paths(body, base_ref)
 
-    if not (missing_headings or empty_sections or unchecked_items or assignment_linking_errors):
+    if not (
+        missing_headings
+        or empty_sections
+        or unchecked_items
+        or assignment_linking_errors
+        or protected_path_errors
+    ):
         print("Pull request submission format looks good.")
         return 0
 
@@ -261,6 +345,11 @@ def main() -> int:
     if assignment_linking_errors:
         print("Assignment branch validation errors:")
         for error in assignment_linking_errors:
+            print(f"- {error}")
+
+    if protected_path_errors:
+        print("Restricted file changes:")
+        for error in protected_path_errors:
             print(f"- {error}")
 
     return 1

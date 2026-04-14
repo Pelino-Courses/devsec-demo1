@@ -27,6 +27,7 @@ your work through a pull request.
   - AI disclosure
   - authorship affirmation
 - Your pull request is treated as your submission record for review and grading.
+  - Assignment pull requests are expected to pass submission hygiene, lint, and Django health checks.
 
 ## AI and authorship policy
 

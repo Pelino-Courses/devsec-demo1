@@ -16,7 +16,10 @@ _find_missing_headings = MODULE._find_missing_headings
 _find_unchecked_checklist_items = MODULE._find_unchecked_checklist_items
 _extract_issue_numbers_from_related_section = MODULE._extract_issue_numbers_from_related_section
 _extract_required_branch_from_issue = MODULE._extract_required_branch_from_issue
+_find_protected_assignment_paths = MODULE._find_protected_assignment_paths
+_is_assignment_submission = MODULE._is_assignment_submission
 _validate_assignment_linking = MODULE._validate_assignment_linking
+_validate_protected_assignment_paths = MODULE._validate_protected_assignment_paths
 
 
 VALID_BODY = """## Assignment Summary
@@ -112,6 +115,46 @@ class ValidatePrSubmissionTests(unittest.TestCase):
             "assignment/secure-password-reset",
         )
 
+    def test_assignment_submission_detected_from_assignment_base_branch(self) -> None:
+        self.assertTrue(_is_assignment_submission("", "assignment/secure-password-reset"))
+
+    def test_assignment_submission_detected_from_template_markers(self) -> None:
+        self.assertTrue(_is_assignment_submission(VALID_BODY, "main"))
+
+    def test_non_assignment_pr_is_not_detected_from_plain_body(self) -> None:
+        self.assertFalse(
+            _is_assignment_submission("## Summary\n- Internal maintenance update.\n", "main"),
+        )
+
+    def test_protected_assignment_paths_detect_instructor_and_ci_files(self) -> None:
+        self.assertEqual(
+            _find_protected_assignment_paths(
+                [
+                    "docs/assignment-issues/secure-password-reset.md",
+                    "docs/review-workflow.md",
+                    ".github/workflows/ci.yml",
+                    "student_app/views.py",
+                ],
+            ),
+            [
+                ".github/workflows/ci.yml",
+                "docs/assignment-issues/secure-password-reset.md",
+                "docs/review-workflow.md",
+            ],
+        )
+
+    def test_protected_assignment_paths_allow_normal_student_code(self) -> None:
+        self.assertEqual(
+            _find_protected_assignment_paths(
+                [
+                    "student_app/views.py",
+                    "student_app/tests.py",
+                    "README.md",
+                ],
+            ),
+            [],
+        )
+
     def test_assignment_linking_accepts_matching_issue_and_branch(self) -> None:
         original_fetch = MODULE._fetch_issue_body
         MODULE._fetch_issue_body = lambda issue_number: VALID_ISSUE_BODY
@@ -153,6 +196,59 @@ class ValidatePrSubmissionTests(unittest.TestCase):
 - Internal instructor maintenance update.
 """
         self.assertEqual(_validate_assignment_linking(non_assignment_body, "main"), [])
+
+    def test_protected_path_validation_skips_non_assignment_prs(self) -> None:
+        original_fetch = MODULE._fetch_pull_request_files
+        MODULE._fetch_pull_request_files = lambda: [".github/workflows/ci.yml"]
+        try:
+            self.assertEqual(
+                _validate_protected_assignment_paths("## Summary\n- Internal instructor maintenance update.\n", "main"),
+                [],
+            )
+        finally:
+            MODULE._fetch_pull_request_files = original_fetch
+
+    def test_protected_path_validation_rejects_assignment_prs_touching_admin_files(self) -> None:
+        original_fetch = MODULE._fetch_pull_request_files
+        MODULE._fetch_pull_request_files = lambda: [
+            ".github/workflows/ci.yml",
+            "scripts/create_assignment_issues.sh",
+            "student_app/views.py",
+        ]
+        try:
+            errors = _validate_protected_assignment_paths(VALID_BODY, "assignment/secure-password-reset")
+        finally:
+            MODULE._fetch_pull_request_files = original_fetch
+
+        self.assertTrue(any("must not modify instructor-facing" in error for error in errors))
+        self.assertTrue(any("Restricted file changed: .github/workflows/ci.yml" == error for error in errors))
+        self.assertTrue(any("Restricted file changed: scripts/create_assignment_issues.sh" == error for error in errors))
+
+    def test_main_skips_non_assignment_pull_requests(self) -> None:
+        original_load = MODULE._load_event_payload
+        MODULE._load_event_payload = lambda: {
+            "pull_request": {
+                "body": "## Summary\n- Internal instructor maintenance update.\n",
+                "base": {"ref": "main"},
+            },
+        }
+        try:
+            self.assertEqual(MODULE.main(), 0)
+        finally:
+            MODULE._load_event_payload = original_load
+
+    def test_main_requires_template_for_assignment_pull_requests(self) -> None:
+        original_load = MODULE._load_event_payload
+        MODULE._load_event_payload = lambda: {
+            "pull_request": {
+                "body": "",
+                "base": {"ref": "assignment/secure-password-reset"},
+            },
+        }
+        try:
+            self.assertEqual(MODULE.main(), 1)
+        finally:
+            MODULE._load_event_payload = original_load
 
 
 if __name__ == "__main__":
