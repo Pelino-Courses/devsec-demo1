@@ -2,7 +2,7 @@ import io
 import shutil
 import tempfile
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, Permission, User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.test.utils import override_settings
@@ -145,3 +145,43 @@ class AuthenticationFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Upload a valid image")
+
+    def test_anonymous_user_redirected_from_privileged_portal(self):
+        response = self.client.get(reverse("venuste:privileged_portal"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("venuste:login"), response.url)
+
+    def test_standard_authenticated_user_denied_privileged_portal(self):
+        self.client.login(username="existinguser", password="StrongPass123!")
+        response = self.client.get(reverse("venuste:privileged_portal"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_staff_user_allowed_privileged_portal(self):
+        staff_user = User.objects.create_user(
+            username="staffer",
+            email="staff@example.com",
+            password="StrongPass123!",
+            is_staff=True,
+        )
+        self.client.login(username="staffer", password="StrongPass123!")
+        response = self.client.get(reverse("venuste:privileged_portal"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Authorization Portal")
+        staff_user.delete()
+
+    def test_instructor_group_user_allowed_privileged_portal(self):
+        instructor_user = User.objects.create_user(
+            username="instructor",
+            email="instructor@example.com",
+            password="StrongPass123!",
+        )
+        instructors, _ = Group.objects.get_or_create(name="instructors")
+        permission = Permission.objects.get(codename="access_privileged_portal")
+        instructors.permissions.add(permission)
+        instructor_user.groups.add(instructors)
+
+        self.client.login(username="instructor", password="StrongPass123!")
+        response = self.client.get(reverse("venuste:privileged_portal"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Authorization Portal")
+        instructor_user.delete()

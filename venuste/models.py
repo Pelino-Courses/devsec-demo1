@@ -19,5 +19,10 @@ class UserProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        permissions = [
+            ("access_privileged_portal", "Can access privileged authorization portal"),
+        ]
+
     def __str__(self):
         return f"Profile<{self.user.username}>"

@@ -4,6 +4,7 @@ from django.urls import path
 from .views import (
     DashboardView,
     ProfileView,
+    PrivilegedPortalView,
     UserLoginView,
     UserPasswordChangeDoneView,
     UserPasswordChangeView,
@@ -19,6 +20,7 @@ urlpatterns = [
     path("login/", UserLoginView.as_view(), name="login"),
     path("logout/", LogoutView.as_view(next_page="venuste:login"), name="logout"),
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
+    path("authorization/", PrivilegedPortalView.as_view(), name="privileged_portal"),
     path("profile/", ProfileView.as_view(), name="profile"),
     path("password-change/", UserPasswordChangeView.as_view(), name="password_change"),
     path(

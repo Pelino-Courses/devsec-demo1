@@ -12,6 +12,7 @@ This project now includes a complete Django authentication app named `venuste` f
 - Protected dashboard
 - Password change flow
 - Basic profile/account page
+- Role-based access control for privileged portal
 - Admin integration for `UserProfile`
 - Django messages for user feedback
 
@@ -45,6 +46,20 @@ This project now includes a complete Django authentication app named `venuste` f
 - `/dashboard/` protected dashboard
 - `/profile/` protected profile page
 - `/password-change/` change password
+- `/authorization/` privileged role-only portal
+
+### Authorization Strategy (RBAC)
+
+- **Anonymous visitors**: can access login/signup, but protected routes redirect to login.
+- **Authenticated users**: can access profile, dashboard, and password features.
+- **Privileged users**: staff, superusers, or users in `instructors` group with `venuste.access_privileged_portal` permission can access `/authorization/`.
+
+Implementation uses Django-native authorization controls:
+
+- Custom model permission: `access_privileged_portal`
+- Group-based privilege assignment: `instructors`
+- Server-side enforcement in views via `UserPassesTestMixin`
+- Template-level hiding of privileged navigation/actions for non-privileged users
 
 ### Tests
 
@@ -60,3 +75,5 @@ Covered tests include:
 - Login success and failure
 - Access control for protected page
 - Password change success
+- Profile picture upload success and invalid upload rejection
+- RBAC allow/deny tests for anonymous, standard, staff, and instructor-group users
