@@ -251,6 +251,41 @@ class AuthenticationFlowTests(TestCase):
         self.assertContains(response, "Profile updated successfully.")
         self.assertTrue(bool(self.user.profile.profile_picture))
 
+    def test_profile_bio_strips_html_and_script_tags(self):
+        self.client.login(username="existinguser", password="StrongPass123!")
+        malicious_bio = '<script>alert("x")</script><b>Safe Text</b>'
+
+        response = self.client.post(
+            reverse("venuste:profile"),
+            {
+                "bio": malicious_bio,
+            },
+            follow=True,
+        )
+
+        self.user.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "<script>", html=False)
+        self.assertNotContains(response, "<b>", html=False)
+        self.assertEqual(self.user.profile.bio, 'alert("x")Safe Text')
+
+    def test_profile_bio_preserves_plain_text_content(self):
+        self.client.login(username="existinguser", password="StrongPass123!")
+        plain_bio = "Security engineer & Python developer"
+
+        response = self.client.post(
+            reverse("venuste:profile"),
+            {
+                "bio": plain_bio,
+            },
+            follow=True,
+        )
+
+        self.user.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Security engineer &amp; Python developer")
+        self.assertEqual(self.user.profile.bio, plain_bio)
+
     def test_profile_picture_upload_rejects_invalid_image(self):
         self.client.login(username="existinguser", password="StrongPass123!")
         fake_image = SimpleUploadedFile(

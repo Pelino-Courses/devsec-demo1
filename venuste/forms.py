@@ -6,6 +6,7 @@ from django.contrib.auth.forms import (
     UserCreationForm,
 )
 from django.contrib.auth.models import User
+from django.utils.html import strip_tags
 from PIL import Image
 
 from .models import UserProfile
@@ -75,3 +76,8 @@ class ProfileUpdateForm(forms.ModelForm):
             raise forms.ValidationError("Upload a valid image file.") from exc
 
         return profile_picture
+
+    def clean_bio(self):
+        bio = self.cleaned_data.get("bio", "")
+        # Store profile bio as plain text to prevent stored markup/script payloads.
+        return strip_tags(bio)
