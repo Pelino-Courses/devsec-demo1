@@ -11,21 +11,24 @@ from django.contrib.auth.views import (
     PasswordResetConfirmView,
     PasswordResetView,
 )
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render, resolve_url
 from django.utils.decorators import method_decorator
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import csrf_protect
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.generic import TemplateView
 
 from .audit import fingerprint, log_security_event
 from .forms import (
     CustomPasswordChangeForm,
+    DocumentUploadForm,
     LoginForm,
     ProfileUpdateForm,
     RegistrationForm,
 )
-from .models import UserProfile
+from .models import UserDocument, UserProfile
 
 User = get_user_model()
 
@@ -184,6 +187,63 @@ class UserPasswordResetConfirmView(PasswordResetConfirmView):
             request=self.request,
             actor=user,
             target=user,
+        )
+        return response
+
+
+class DocumentManageView(LoginRequiredMixin, TemplateView):
+    template_name = "venuste/document_manage.html"
+    login_url = "venuste:login"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["form"] = kwargs.get("form") or DocumentUploadForm()
+        context["documents"] = UserDocument.objects.filter(user=self.request.user)
+        return context
+
+    def post(self, request, *args, **kwargs):
+        form = DocumentUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            document = form.save(commit=False)
+            document.user = request.user
+            document.original_filename = document.file.name
+            document.save()
+            log_security_event(
+                "upload.document.success",
+                request=request,
+                actor=request.user,
+                target=request.user,
+                details={"document_id": document.id, "file_name": document.file.name},
+            )
+            messages.success(request, "Document uploaded successfully.")
+            return redirect("venuste:documents")
+
+        messages.error(request, "Please correct the document upload errors.")
+        return self.render_to_response(self.get_context_data(form=form))
+
+
+class DocumentDownloadView(LoginRequiredMixin, View):
+    login_url = "venuste:login"
+
+    def get(self, request, document_id):
+        documents = UserDocument.objects.select_related("user")
+        if is_privileged_user(request.user):
+            document = get_object_or_404(documents, pk=document_id)
+        else:
+            document = get_object_or_404(documents, pk=document_id, user=request.user)
+
+        response = FileResponse(
+            document.file.open("rb"),
+            as_attachment=True,
+            filename=document.original_filename,
+        )
+        response["X-Content-Type-Options"] = "nosniff"
+        log_security_event(
+            "upload.document.download",
+            request=request,
+            actor=request.user,
+            target=document.user,
+            details={"document_id": document.id},
         )
         return response
 

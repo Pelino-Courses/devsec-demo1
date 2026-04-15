@@ -4,6 +4,8 @@ from django.urls import reverse_lazy
 
 from .views import (
     DashboardView,
+    DocumentDownloadView,
+    DocumentManageView,
     ProfileManageByIdView,
     ProfileView,
     PrivilegedPortalView,
@@ -54,6 +56,8 @@ urlpatterns = [
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("authorization/", PrivilegedPortalView.as_view(), name="privileged_portal"),
     path("profile/", ProfileView.as_view(), name="profile"),
+    path("documents/", DocumentManageView.as_view(), name="documents"),
+    path("documents/<int:document_id>/download/", DocumentDownloadView.as_view(), name="document_download"),
     path("profiles/<int:profile_id>/", ProfileManageByIdView.as_view(), name="profile_manage"),
     path("password-change/", UserPasswordChangeView.as_view(), name="password_change"),
     path(

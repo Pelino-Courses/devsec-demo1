@@ -14,6 +14,7 @@
 
     <div class="action-grid">
         <a href="{% url 'venuste:profile' %}" class="action-link">View Profile</a>
+        <a href="{% url 'venuste:documents' %}" class="action-link">My Documents</a>
         <a href="{% url 'venuste:password_change' %}" class="action-link primary">Change Password</a>
         {% if is_privileged_user %}
             <a href="{% url 'venuste:privileged_portal' %}" class="action-link warn" style="grid-column: 1 / -1;">Open Authorization Portal</a>

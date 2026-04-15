@@ -1,5 +1,6 @@
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 from django.contrib.auth.forms import (
     AuthenticationForm,
     PasswordChangeForm,
@@ -9,7 +10,7 @@ from django.contrib.auth.models import User
 from django.utils.html import strip_tags
 from PIL import Image
 
-from .models import UserProfile
+from .models import UserDocument, UserProfile
 from .throttling import LoginThrottle
 
 
@@ -52,6 +53,8 @@ class CustomPasswordChangeForm(PasswordChangeForm):
 
 class ProfileUpdateForm(forms.ModelForm):
     MAX_UPLOAD_SIZE = 2 * 1024 * 1024  # 2MB
+    ALLOWED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+    ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP"}
 
     class Meta:
         model = UserProfile
@@ -68,12 +71,20 @@ class ProfileUpdateForm(forms.ModelForm):
         if profile_picture.size > self.MAX_UPLOAD_SIZE:
             raise forms.ValidationError("Profile picture must be 2MB or smaller.")
 
+        content_type = getattr(profile_picture, "content_type", "")
+        if content_type and content_type.lower() not in self.ALLOWED_IMAGE_MIME_TYPES:
+            raise forms.ValidationError("Only JPG, PNG, or WEBP images are allowed.")
+
         try:
             image = Image.open(profile_picture)
+            image_format = (image.format or "").upper()
             image.verify()
             profile_picture.seek(0)
         except Exception as exc:
             raise forms.ValidationError("Upload a valid image file.") from exc
+
+        if image_format not in self.ALLOWED_IMAGE_FORMATS:
+            raise forms.ValidationError("Only JPG, PNG, or WEBP images are allowed.")
 
         return profile_picture
 
@@ -81,3 +92,42 @@ class ProfileUpdateForm(forms.ModelForm):
         bio = self.cleaned_data.get("bio", "")
         # Store profile bio as plain text to prevent stored markup/script payloads.
         return strip_tags(bio)
+
+
+class DocumentUploadForm(forms.ModelForm):
+    MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5MB
+    ALLOWED_MIME_TYPES = {
+        "application/pdf",
+        "text/plain",
+    }
+
+    class Meta:
+        model = UserDocument
+        fields = ("title", "file")
+
+    def clean_file(self):
+        uploaded_file = self.cleaned_data.get("file")
+        if not uploaded_file:
+            return uploaded_file
+
+        if uploaded_file.size > self.MAX_UPLOAD_SIZE:
+            raise forms.ValidationError("Document must be 5MB or smaller.")
+
+        FileExtensionValidator(allowed_extensions=["pdf", "txt"])(uploaded_file)
+
+        content_type = getattr(uploaded_file, "content_type", "")
+        if content_type and content_type.lower() not in self.ALLOWED_MIME_TYPES:
+            raise forms.ValidationError("Only PDF and TXT documents are allowed.")
+
+        file_head = uploaded_file.read(2048)
+        uploaded_file.seek(0)
+        lower_name = uploaded_file.name.lower()
+
+        if lower_name.endswith(".pdf"):
+            if not file_head.startswith(b"%PDF-"):
+                raise forms.ValidationError("Invalid PDF document content.")
+        elif lower_name.endswith(".txt"):
+            if b"\x00" in file_head:
+                raise forms.ValidationError("Invalid TXT document content.")
+
+        return uploaded_file

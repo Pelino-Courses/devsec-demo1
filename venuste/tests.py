@@ -25,13 +25,18 @@ class AuthenticationFlowTests(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls._temp_media_root = tempfile.mkdtemp()
-        cls._override = override_settings(MEDIA_ROOT=cls._temp_media_root)
+        cls._temp_private_media_root = tempfile.mkdtemp()
+        cls._override = override_settings(
+            MEDIA_ROOT=cls._temp_media_root,
+            PRIVATE_MEDIA_ROOT=cls._temp_private_media_root,
+        )
         cls._override.enable()
 
     @classmethod
     def tearDownClass(cls):
         cls._override.disable()
         shutil.rmtree(cls._temp_media_root, ignore_errors=True)
+        shutil.rmtree(cls._temp_private_media_root, ignore_errors=True)
         super().tearDownClass()
 
     def setUp(self):
@@ -48,6 +53,10 @@ class AuthenticationFlowTests(TestCase):
         image.save(image_stream, format=fmt)
         image_stream.seek(0)
         return SimpleUploadedFile(name, image_stream.read(), content_type="image/png")
+
+    def _build_test_pdf(self, name="notes.pdf"):
+        pdf_bytes = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF"
+        return SimpleUploadedFile(name, pdf_bytes, content_type="application/pdf")
 
     def test_registration_success(self):
         response = self.client.post(
@@ -304,6 +313,126 @@ class AuthenticationFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Upload a valid image")
+
+    def test_profile_picture_upload_rejects_invalid_mime_type(self):
+        self.client.login(username="existinguser", password="StrongPass123!")
+        fake_image = SimpleUploadedFile(
+            "avatar.png",
+            b"plain text data",
+            content_type="text/plain",
+        )
+
+        response = self.client.post(
+            reverse("venuste:profile"),
+            {
+                "bio": "invalid mime attempt",
+                "profile_picture": fake_image,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Upload a valid image")
+
+    def test_document_upload_accepts_valid_pdf(self):
+        self.client.login(username="existinguser", password="StrongPass123!")
+        pdf_file = self._build_test_pdf()
+
+        response = self.client.post(
+            reverse("venuste:documents"),
+            {
+                "title": "Security Notes",
+                "file": pdf_file,
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Document uploaded successfully.")
+        self.assertEqual(self.user.documents.count(), 1)
+
+    def test_document_upload_rejects_disguised_executable(self):
+        self.client.login(username="existinguser", password="StrongPass123!")
+        bad_pdf = SimpleUploadedFile(
+            "malicious.pdf",
+            b"MZ\x90\x00\x03\x00\x00\x00",
+            content_type="application/pdf",
+        )
+
+        response = self.client.post(
+            reverse("venuste:documents"),
+            {
+                "title": "Malicious",
+                "file": bad_pdf,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Invalid PDF document content.")
+        self.assertEqual(self.user.documents.count(), 0)
+
+    def test_document_upload_rejects_unsupported_extension(self):
+        self.client.login(username="existinguser", password="StrongPass123!")
+        exe_file = SimpleUploadedFile(
+            "payload.exe",
+            b"MZ\x90\x00\x03\x00\x00\x00",
+            content_type="application/octet-stream",
+        )
+
+        response = self.client.post(
+            reverse("venuste:documents"),
+            {
+                "title": "Executable",
+                "file": exe_file,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "File extension")
+        self.assertEqual(self.user.documents.count(), 0)
+
+    def test_document_download_requires_owner_or_privileged_user(self):
+        owner = User.objects.create_user(
+            username="docowner",
+            email="docowner@example.com",
+            password="StrongPass123!",
+        )
+        outsider = User.objects.create_user(
+            username="outsider",
+            email="outsider@example.com",
+            password="StrongPass123!",
+        )
+        document = owner.documents.create(
+            title="Owner Doc",
+            original_filename="owner.pdf",
+            file=self._build_test_pdf("owner.pdf"),
+        )
+
+        self.client.login(username="outsider", password="StrongPass123!")
+        forbidden_response = self.client.get(
+            reverse("venuste:document_download", kwargs={"document_id": document.id})
+        )
+        self.assertEqual(forbidden_response.status_code, 404)
+
+        self.client.logout()
+        self.client.login(username="docowner", password="StrongPass123!")
+        owner_response = self.client.get(
+            reverse("venuste:document_download", kwargs={"document_id": document.id})
+        )
+        self.assertEqual(owner_response.status_code, 200)
+        self.assertEqual(owner_response.headers.get("X-Content-Type-Options"), "nosniff")
+
+        staff_user = User.objects.create_user(
+            username="staffdownload",
+            email="staffdownload@example.com",
+            password="StrongPass123!",
+            is_staff=True,
+        )
+        self.client.logout()
+        self.client.login(username="staffdownload", password="StrongPass123!")
+        staff_response = self.client.get(
+            reverse("venuste:document_download", kwargs={"document_id": document.id})
+        )
+        self.assertEqual(staff_response.status_code, 200)
 
     def test_anonymous_user_redirected_from_privileged_portal(self):
         response = self.client.get(reverse("venuste:privileged_portal"))
