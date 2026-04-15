@@ -39,6 +39,26 @@ This project now includes a complete Django authentication app named `venuste` f
 	python manage.py runserver
 	```
 
+### Security Configuration Notes
+
+The settings module now uses explicit environment parsing and production-focused hardening defaults.
+
+Key variables:
+
+- `DJANGO_SECRET_KEY`: required when debug is disabled.
+- `DJANGO_DEBUG`: `true/false` toggle for debug mode.
+- `DJANGO_ALLOWED_HOSTS`: comma-separated allowed hosts.
+- `DJANGO_CSRF_TRUSTED_ORIGINS`: comma-separated trusted origins.
+- `DJANGO_ENABLE_STRICT_TRANSPORT`: enables secure cookie defaults, HTTPS redirect, and HSTS defaults.
+- `DJANGO_SECURE_SSL_REDIRECT`: optional explicit HTTPS redirect override.
+- `DJANGO_SESSION_COOKIE_SECURE`: optional session cookie secure override.
+- `DJANGO_CSRF_COOKIE_SECURE`: optional CSRF cookie secure override.
+- `DJANGO_SECURE_HSTS_SECONDS`: optional HSTS seconds override.
+- `DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS`: optional include-subdomains toggle.
+- `DJANGO_SECURE_HSTS_PRELOAD`: optional preload toggle.
+
+When strict transport is enabled, security settings are tuned for HTTPS-first deployment. Tests keep secure-cookie behavior compatible by detecting test execution mode.
+
 ### Main Routes
 
 - `/signup/` register new user

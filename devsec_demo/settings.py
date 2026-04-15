@@ -10,14 +10,31 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 import os
+import sys
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def env_bool(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_list(name, default=""):
+    value = os.environ.get(name, default)
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+IS_TESTING = "test" in sys.argv
 
 
 # Quick-start development settings - unsuitable for production
@@ -27,9 +44,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG')
+DEBUG = env_bool('DJANGO_DEBUG', default=False)
 
-ALLOWED_HOSTS = []
+if not SECRET_KEY:
+    if DEBUG or IS_TESTING:
+        SECRET_KEY = 'dev-only-insecure-secret-key-change-me'
+    else:
+        raise ImproperlyConfigured('DJANGO_SECRET_KEY must be set when DEBUG is disabled.')
+
+ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', default='localhost,127.0.0.1,[::1]')
+CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
 
 
 # Application definition
@@ -123,6 +147,33 @@ STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 PRIVATE_MEDIA_ROOT = BASE_DIR / 'private_media'
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_REFERRER_POLICY = 'same-origin'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
+
+ENABLE_STRICT_TRANSPORT = env_bool(
+    'DJANGO_ENABLE_STRICT_TRANSPORT',
+    default=(not DEBUG and not IS_TESTING),
+)
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = env_bool('DJANGO_SECURE_SSL_REDIRECT', default=ENABLE_STRICT_TRANSPORT)
+
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SECURE = env_bool('DJANGO_SESSION_COOKIE_SECURE', default=ENABLE_STRICT_TRANSPORT)
+CSRF_COOKIE_SECURE = env_bool('DJANGO_CSRF_COOKIE_SECURE', default=ENABLE_STRICT_TRANSPORT)
+
+SECURE_HSTS_SECONDS = int(os.environ.get('DJANGO_SECURE_HSTS_SECONDS', '31536000' if ENABLE_STRICT_TRANSPORT else '0'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
+    'DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS',
+    default=ENABLE_STRICT_TRANSPORT,
+)
+SECURE_HSTS_PRELOAD = env_bool('DJANGO_SECURE_HSTS_PRELOAD', default=False)
 
 LOGIN_THROTTLE_FAILURE_LIMIT = 5
 LOGIN_THROTTLE_LOCKOUT_SECONDS = 15 * 60
