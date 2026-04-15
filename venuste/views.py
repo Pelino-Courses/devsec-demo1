@@ -183,7 +183,6 @@ class UserPasswordResetView(TemplateView):
             context = {"form": form}
             return self.render_to_response(context)
 
-        username_value = form.cleaned_data["username"]
         email_value = form.cleaned_data["email"]
 
         throttle = PasswordResetThrottle(request, email_value)
@@ -199,41 +198,20 @@ class UserPasswordResetView(TemplateView):
                     "email_fingerprint": fingerprint(email_value),
                 },
             )
-            messages.info(request, "If an account exists with the details provided, we have sent secure reset instructions.")
+            messages.info(request, "If an account exists with that email, we have sent secure reset instructions.")
             return redirect("venuste:password_reset_done")
 
-        matched_users = User.objects.filter(
-            username__iexact=username_value,
-            email__iexact=email_value,
-        ).order_by("id")
-        user = matched_users.first()
+        user = User.objects.filter(email__iexact=email_value).order_by("id").first()
 
         if user is None:
             log_security_event(
                 "auth.password.reset.requested",
                 request=request,
                 outcome="user_not_found",
-                details={
-                    "email_fingerprint": fingerprint(email_value),
-                    "username_fingerprint": fingerprint(username_value),
-                },
+                details={"email_fingerprint": fingerprint(email_value)},
             )
-            messages.info(request, "If an account exists with the details provided, we have sent secure reset instructions.")
+            messages.info(request, "If an account exists with that email, we have sent secure reset instructions.")
             return redirect("venuste:password_reset_done")
-
-        duplicate_count = matched_users.count()
-        if duplicate_count > 1:
-            log_security_event(
-                "auth.password.reset.requested",
-                request=request,
-                outcome="accepted_duplicate_email",
-                details={
-                    "email_fingerprint": fingerprint(email_value),
-                    "username_fingerprint": fingerprint(username_value),
-                    "matched_users": duplicate_count,
-                    "selected_user_id": user.id,
-                },
-            )
 
         throttle.record_attempt()
 
@@ -283,10 +261,7 @@ Venuste Security Team""",
             "auth.password.reset.requested",
             request=request,
             outcome="accepted",
-            details={
-                "email_fingerprint": fingerprint(email_value),
-                "username_fingerprint": fingerprint(username_value),
-            },
+            details={"email_fingerprint": fingerprint(email_value)},
         )
 
         request.session["password_reset_email"] = user.email

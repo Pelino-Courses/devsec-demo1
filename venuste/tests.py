@@ -577,7 +577,7 @@ class AuthenticationFlowTests(TestCase):
         mail.outbox.clear()
         response = self.client.post(
             reverse("venuste:password_reset"),
-            {"username": "existinguser", "email": "existing@example.com"},
+            {"email": "existing@example.com"},
             follow=False,
         )
         self.assertEqual(response.status_code, 302)
@@ -597,7 +597,7 @@ class AuthenticationFlowTests(TestCase):
         mail.outbox.clear()
         response = self.client.post(
             reverse("venuste:password_reset"),
-            {"username": "missinguser", "email": "missing@example.com"},
+            {"email": "missing@example.com"},
             follow=True,
         )
         self.assertEqual(response.status_code, 200)
@@ -611,7 +611,7 @@ class AuthenticationFlowTests(TestCase):
 
         response = self.client.post(
             reverse("venuste:password_reset"),
-            {"username": "existinguser", "email": "existing@example.com"},
+            {"email": "existing@example.com"},
             follow=False,
         )
         self.assertEqual(response.status_code, 302)
@@ -645,7 +645,7 @@ class AuthenticationFlowTests(TestCase):
 
         response = self.client.post(
             reverse("venuste:password_reset"),
-            {"username": "existinguser", "email": "existing@example.com"},
+            {"email": "existing@example.com"},
             follow=False,
         )
         self.assertEqual(response.status_code, 302)
@@ -667,7 +667,7 @@ class AuthenticationFlowTests(TestCase):
 
         response = self.client.post(
             reverse("venuste:password_reset"),
-            {"username": "existinguser", "email": "existing@example.com"},
+            {"email": "existing@example.com"},
             follow=False,
         )
         self.assertEqual(response.status_code, 302)
@@ -722,7 +722,7 @@ class AuthenticationFlowTests(TestCase):
         csrf_client = Client(enforce_csrf_checks=True)
         response = csrf_client.post(
             reverse("venuste:password_reset"),
-            {"username": "existinguser", "email": "existing@example.com"},
+            {"email": "existing@example.com"},
         )
         self.assertEqual(response.status_code, 403)
         self.assertEqual(len(mail.outbox), 0)
@@ -735,7 +735,6 @@ class AuthenticationFlowTests(TestCase):
         response = csrf_client.post(
             reverse("venuste:password_reset"),
             {
-                "username": "existinguser",
                 "email": "existing@example.com",
                 "csrfmiddlewaretoken": csrf_token,
             },
@@ -754,12 +753,12 @@ class AuthenticationFlowTests(TestCase):
 
         first_response = self.client.post(
             reverse("venuste:password_reset"),
-            {"username": "existinguser", "email": "existing@example.com"},
+            {"email": "existing@example.com"},
             follow=True,
         )
         second_response = self.client.post(
             reverse("venuste:password_reset"),
-            {"username": "existinguser", "email": "existing@example.com"},
+            {"email": "existing@example.com"},
             follow=True,
         )
 

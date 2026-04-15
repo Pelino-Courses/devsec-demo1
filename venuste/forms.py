@@ -52,16 +52,9 @@ class CustomPasswordChangeForm(PasswordChangeForm):
 
 
 class PasswordResetForm(forms.Form):
-    username = forms.CharField(
-        max_length=150,
-        widget=forms.TextInput(attrs={"class": "form-control"}),
-    )
     email = forms.EmailField(
         widget=forms.EmailInput(attrs={"class": "form-control"})
     )
-
-    def clean_username(self):
-        return self.cleaned_data.get("username", "").strip()
 
     def clean_email(self):
         email = self.cleaned_data.get("email", "").strip().lower()
