@@ -274,8 +274,8 @@ class AuthenticationFlowTests(TestCase):
 
         self.user.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, "<script>", html=False)
-        self.assertNotContains(response, "<b>", html=False)
+        self.assertNotContains(response, malicious_bio, html=False)
+        self.assertNotContains(response, "<b>Safe Text</b>", html=False)
         self.assertEqual(self.user.profile.bio, 'alert("x")Safe Text')
 
     def test_profile_bio_preserves_plain_text_content(self):

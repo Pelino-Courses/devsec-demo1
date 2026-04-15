@@ -14,18 +14,18 @@
         <div class="status-panel">
             <p><strong>Staff Users</strong><br>{{ total_staff }}</p>
         </div>
-        <div class="status-panel" style="grid-column: 1 / -1;">
+        <div class="status-panel sm:col-span-2">
             <p><strong>Superusers</strong><br>{{ total_superusers }}</p>
         </div>
     </div>
 
     <div class="success-panel">
-        <p style="margin:0; font-size:0.84rem; line-height:1.35; color:#1f2937;">
+        <p class="m-0 text-sm leading-relaxed text-slate-200">
             Least-privilege policy is enforced server-side. Standard authenticated users cannot access this page.
         </p>
     </div>
 
-    <div class="action-grid" style="grid-template-columns: 1fr;">
+    <div class="action-grid grid-cols-1">
         <a href="{% url 'venuste:dashboard' %}" class="action-link primary">Back to Dashboard</a>
     </div>
 </div>

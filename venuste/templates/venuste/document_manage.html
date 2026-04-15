@@ -32,12 +32,12 @@
         <button type="submit">Upload Document</button>
     </form>
 
-    <div class="profile-item" style="grid-column: 1 / -1;">
+    <div class="profile-item sm:col-span-2">
         <span class="label">My Documents</span>
         {% if documents %}
-            <ul style="margin:0.35rem 0 0 1rem;">
+            <ul class="mt-2 list-disc space-y-1 pl-5">
                 {% for document in documents %}
-                    <li style="margin-bottom:0.35rem;">
+                    <li>
                         <strong>{{ document.title }}</strong>
                         <span class="hint">({{ document.original_filename }})</span>
                         - <a href="{% url 'venuste:document_download' document.id %}">Download</a>
