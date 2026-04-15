@@ -1,4 +1,5 @@
 import io
+import json
 import shutil
 import tempfile
 import re
@@ -550,3 +551,115 @@ class AuthenticationFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "If an account exists")
         self.assertEqual(len(mail.outbox), 1)
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class AuditLoggingTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="audituser",
+            email="audit@example.com",
+            password="StrongPass123!",
+        )
+
+    def _parse_log_payloads(self, output_lines):
+        payloads = []
+        for line in output_lines:
+            _, _, json_blob = line.split(":", 2)
+            payloads.append(json.loads(json_blob))
+        return payloads
+
+    def test_registration_logs_security_event_without_password(self):
+        raw_password = "VeryStrongPass123!"
+        with self.assertLogs("venuste.security", level="INFO") as captured:
+            response = self.client.post(
+                reverse("venuste:signup"),
+                {
+                    "username": "auditregistered",
+                    "email": "auditregistered@example.com",
+                    "password1": raw_password,
+                    "password2": raw_password,
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        serialized_output = "\n".join(captured.output)
+        self.assertIn("auth.registration", serialized_output)
+        self.assertNotIn(raw_password, serialized_output)
+
+    def test_login_failure_logs_denied_event_without_password(self):
+        raw_password = "WrongPass123!"
+        with self.assertLogs("venuste.security", level="INFO") as captured:
+            response = self.client.post(
+                reverse("venuste:login"),
+                {"username": "audituser", "password": raw_password},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        serialized_output = "\n".join(captured.output)
+        self.assertIn("auth.login.failure", serialized_output)
+        self.assertIn('"outcome": "denied"', serialized_output)
+        self.assertNotIn(raw_password, serialized_output)
+
+    def test_logout_logs_security_event(self):
+        self.client.login(username="audituser", password="StrongPass123!")
+
+        with self.assertLogs("venuste.security", level="INFO") as captured:
+            response = self.client.post(reverse("venuste:logout"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("auth.logout", "\n".join(captured.output))
+
+    def test_password_change_logs_security_event(self):
+        self.client.login(username="audituser", password="StrongPass123!")
+
+        with self.assertLogs("venuste.security", level="INFO") as captured:
+            response = self.client.post(
+                reverse("venuste:password_change"),
+                {
+                    "old_password": "StrongPass123!",
+                    "new_password1": "UpdatedStrongPass123!",
+                    "new_password2": "UpdatedStrongPass123!",
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("auth.password.change", "\n".join(captured.output))
+
+    def test_password_reset_request_logs_fingerprinted_identifier(self):
+        with self.assertLogs("venuste.security", level="INFO") as captured:
+            response = self.client.post(
+                reverse("venuste:password_reset"),
+                {"email": "audit@example.com"},
+            )
+
+        self.assertEqual(response.status_code, 302)
+        serialized_output = "\n".join(captured.output)
+        self.assertIn("auth.password.reset.requested", serialized_output)
+        self.assertIn("email_fingerprint", serialized_output)
+        self.assertNotIn("audit@example.com", serialized_output)
+
+    def test_privilege_flag_change_logs_event(self):
+        with self.assertLogs("venuste.security", level="INFO") as captured:
+            self.user.is_staff = True
+            self.user.save()
+
+        payloads = self._parse_log_payloads(captured.output)
+        flag_change_payloads = [
+            item for item in payloads if item.get("event") == "auth.privilege.user_flags_changed"
+        ]
+        self.assertTrue(flag_change_payloads)
+        self.assertEqual(
+            flag_change_payloads[0]["details"]["changes"]["is_staff"]["new"],
+            True,
+        )
+
+    def test_user_group_membership_change_logs_event(self):
+        instructors, _ = Group.objects.get_or_create(name="instructors")
+
+        with self.assertLogs("venuste.security", level="INFO") as captured:
+            self.user.groups.add(instructors)
+
+        serialized_output = "\n".join(captured.output)
+        self.assertIn("auth.privilege.user_groups_changed", serialized_output)
+        self.assertIn("instructors", serialized_output)

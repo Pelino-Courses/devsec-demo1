@@ -1,10 +1,4 @@
-from django.contrib.auth.views import (
-    LogoutView,
-    PasswordResetCompleteView,
-    PasswordResetConfirmView,
-    PasswordResetDoneView,
-    PasswordResetView,
-)
+from django.contrib.auth.views import LogoutView, PasswordResetCompleteView, PasswordResetDoneView
 from django.urls import path
 from django.urls import reverse_lazy
 
@@ -16,6 +10,8 @@ from .views import (
     UserLoginView,
     UserPasswordChangeDoneView,
     UserPasswordChangeView,
+    UserPasswordResetConfirmView,
+    UserPasswordResetView,
     home_redirect,
     signup_view,
 )
@@ -28,7 +24,7 @@ urlpatterns = [
     path("login/", UserLoginView.as_view(), name="login"),
     path(
         "password-reset/",
-        PasswordResetView.as_view(
+        UserPasswordResetView.as_view(
             template_name="venuste/password_reset_form.html",
             email_template_name="venuste/password_reset_email.html",
             subject_template_name="venuste/password_reset_subject.txt",
@@ -43,7 +39,7 @@ urlpatterns = [
     ),
     path(
         "reset/<uidb64>/<token>/",
-        PasswordResetConfirmView.as_view(
+        UserPasswordResetConfirmView.as_view(
             template_name="venuste/password_reset_confirm.html",
             success_url=reverse_lazy("venuste:password_reset_complete"),
         ),

@@ -4,7 +4,13 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import redirect_to_login
-from django.contrib.auth.views import LoginView, PasswordChangeDoneView, PasswordChangeView
+from django.contrib.auth.views import (
+    LoginView,
+    PasswordChangeDoneView,
+    PasswordChangeView,
+    PasswordResetConfirmView,
+    PasswordResetView,
+)
 from django.shortcuts import get_object_or_404, redirect, render, resolve_url
 from django.utils.decorators import method_decorator
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -12,6 +18,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView
 
+from .audit import fingerprint, log_security_event
 from .forms import (
     CustomPasswordChangeForm,
     LoginForm,
@@ -140,9 +147,45 @@ class UserPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
     form_class = CustomPasswordChangeForm
     success_url = reverse_lazy("venuste:password_change_done")
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_security_event(
+            "auth.password.change",
+            request=self.request,
+            actor=self.request.user,
+            target=self.request.user,
+        )
+        return response
+
 
 class UserPasswordChangeDoneView(LoginRequiredMixin, PasswordChangeDoneView):
     template_name = "venuste/password_change_done.html"
+
+
+class UserPasswordResetView(PasswordResetView):
+    def form_valid(self, form):
+        email_value = form.cleaned_data.get("email", "")
+        response = super().form_valid(form)
+        log_security_event(
+            "auth.password.reset.requested",
+            request=self.request,
+            outcome="accepted",
+            details={"email_fingerprint": fingerprint(email_value)},
+        )
+        return response
+
+
+class UserPasswordResetConfirmView(PasswordResetConfirmView):
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        user = getattr(form, "user", None)
+        log_security_event(
+            "auth.password.reset.completed",
+            request=self.request,
+            actor=user,
+            target=user,
+        )
+        return response
 
 
 class PrivilegedPortalView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
@@ -179,6 +222,7 @@ def signup_view(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
+            log_security_event("auth.registration", request=request, actor=user, target=user)
             messages.success(request, "Registration successful. Welcome!")
             return redirect(get_safe_redirect_target(request, "venuste:dashboard"))
         messages.error(request, "Please correct the errors below.")
