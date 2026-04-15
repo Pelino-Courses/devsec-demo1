@@ -1,0 +1,62 @@
+{% extends 'venuste/base.html' %}
+
+{% block title %}Secure Profile Management - Venuste{% endblock %}
+
+{% block content %}
+<h1>Secure Profile Management</h1>
+<p class="subtitle">Object-level checks ensure only authorized users can access this profile.</p>
+
+<div class="view-stack">
+    <div class="profile-grid">
+        <div class="profile-item">
+            <span class="label">Profile ID</span>
+            <span class="value">{{ target_profile.id }}</span>
+        </div>
+        <div class="profile-item">
+            <span class="label">Owner Username</span>
+            <span class="value">{{ target_profile.user.username }}</span>
+        </div>
+        <div class="profile-item sm:col-span-2">
+            <span class="label">Access Context</span>
+            <span class="value">
+                {% if is_owner %}
+                    Owner access
+                {% elif is_privileged_user %}
+                    Privileged role access
+                {% else %}
+                    Unauthorized
+                {% endif %}
+            </span>
+        </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            {{ form.non_field_errors }}
+        {% endif %}
+
+        <p>
+            <label for="{{ form.bio.id_for_label }}">{{ form.bio.label }}</label>
+            {{ form.bio }}
+            {% if form.bio.errors %}
+                {{ form.bio.errors }}
+            {% endif %}
+        </p>
+        <p>
+            <label for="{{ form.profile_picture.id_for_label }}">{{ form.profile_picture.label }}</label>
+            {{ form.profile_picture }}
+            {% if form.profile_picture.errors %}
+                {{ form.profile_picture.errors }}
+            {% endif %}
+            <span class="hint">Accepted: JPG, PNG, WEBP. Max size: 2MB.</span>
+        </p>
+        <button type="submit">Save Profile</button>
+    </form>
+
+    <div class="action-grid">
+        <a href="{% url 'venuste:profile' %}" class="action-link">My Profile</a>
+        <a href="{% url 'venuste:dashboard' %}" class="action-link primary">Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}

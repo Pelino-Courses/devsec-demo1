@@ -1,0 +1,32 @@
+{% extends 'venuste/base.html' %}
+
+{% block title %}Authorization Portal - Venuste{% endblock %}
+
+{% block content %}
+<div class="view-stack">
+    <h1>Authorization Portal</h1>
+    <p class="subtitle">Privileged area for staff, admins, and instructor-authorized users.</p>
+
+    <div class="status-grid">
+        <div class="status-panel">
+            <p><strong>Total Users</strong><br>{{ total_users }}</p>
+        </div>
+        <div class="status-panel">
+            <p><strong>Staff Users</strong><br>{{ total_staff }}</p>
+        </div>
+        <div class="status-panel sm:col-span-2">
+            <p><strong>Superusers</strong><br>{{ total_superusers }}</p>
+        </div>
+    </div>
+
+    <div class="success-panel">
+        <p class="m-0 text-sm leading-relaxed text-slate-200">
+            Least-privilege policy is enforced server-side. Standard authenticated users cannot access this page.
+        </p>
+    </div>
+
+    <div class="action-grid grid-cols-1">
+        <a href="{% url 'venuste:dashboard' %}" class="action-link primary">Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}

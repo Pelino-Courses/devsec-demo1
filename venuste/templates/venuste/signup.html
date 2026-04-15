@@ -1,0 +1,38 @@
+{% extends 'venuste/base.html' %}
+
+{% block title %}Create Account - Venuste{% endblock %}
+
+{% block content %}
+<h1>Create Account</h1>
+<p class="subtitle">Join us today and secure your digital presence</p>
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% if next %}
+        <input type="hidden" name="next" value="{{ next }}">
+    {% endif %}
+    {% if form.non_field_errors %}
+        {{ form.non_field_errors }}
+    {% endif %}
+    
+    {% for field in form %}
+        <p>
+            {% if field.label %}
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {% endif %}
+            {{ field }}
+            {% if field.errors %}
+                {{ field.errors }}
+            {% endif %}
+        </p>
+    {% endfor %}
+
+    <p class="hint">Use at least 8 characters and include letters and numbers in your password.</p>
+    
+    <button type="submit">Create Account</button>
+</form>
+
+<div class="form-footer">
+    <p>Already have an account? <a href="{% url 'venuste:login' %}">Sign in here</a></p>
+</div>
+{% endblock %}

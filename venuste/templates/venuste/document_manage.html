@@ -1,0 +1,57 @@
+{% extends 'venuste/base.html' %}
+
+{% block title %}Secure Documents - Venuste{% endblock %}
+
+{% block content %}
+<h1>Secure Document Upload</h1>
+<p class="subtitle">Upload PDF or TXT files only. Documents are stored privately and require authentication for download.</p>
+
+<div class="view-stack">
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            {{ form.non_field_errors }}
+        {% endif %}
+
+        <p>
+            <label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+            {{ form.title }}
+            {% if form.title.errors %}
+                {{ form.title.errors }}
+            {% endif %}
+        </p>
+        <p>
+            <label for="{{ form.file.id_for_label }}">{{ form.file.label }}</label>
+            {{ form.file }}
+            {% if form.file.errors %}
+                {{ form.file.errors }}
+            {% endif %}
+            <span class="hint">Accepted: PDF, TXT. Maximum size: 5MB.</span>
+        </p>
+
+        <button type="submit">Upload Document</button>
+    </form>
+
+    <div class="profile-item sm:col-span-2">
+        <span class="label">My Documents</span>
+        {% if documents %}
+            <ul class="mt-2 list-disc space-y-1 pl-5">
+                {% for document in documents %}
+                    <li>
+                        <strong>{{ document.title }}</strong>
+                        <span class="hint">({{ document.original_filename }})</span>
+                        - <a href="{% url 'venuste:document_download' document.id %}">Download</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <span class="value">No documents uploaded yet.</span>
+        {% endif %}
+    </div>
+
+    <div class="action-grid">
+        <a href="{% url 'venuste:profile' %}" class="action-link">Back to Profile</a>
+        <a href="{% url 'venuste:dashboard' %}" class="action-link primary">Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Venuste Authentication{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        body: ["Manrope", "sans-serif"],
+                        display: ["Sora", "sans-serif"],
+                    },
+                    boxShadow: {
+                        float: "0 22px 52px rgba(20, 22, 48, 0.22)",
+                    },
+                    colors: {
+                        venuste: {
+                            50: "#eef2ff",
+                            100: "#dbe5ff",
+                            500: "#5865f2",
+                            600: "#4a52d4",
+                            700: "#3f45b2",
+                        },
+                    },
+                },
+            },
+        };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+    <style type="text/tailwindcss">
+        @layer base {
+            body {
+                @apply min-h-screen bg-slate-950 text-slate-100 font-body antialiased;
+                background-image: radial-gradient(circle at 20% 10%, rgba(88, 101, 242, 0.36), transparent 36%), radial-gradient(circle at 78% 18%, rgba(20, 184, 166, 0.24), transparent 34%), linear-gradient(145deg, #0f172a 0%, #111827 52%, #0a0f1f 100%);
+            }
+            h1 {
+                @apply font-display text-3xl md:text-4xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-cyan-200 to-teal-200;
+            }
+            h2, h3 {
+                @apply font-display text-slate-100;
+            }
+            label {
+                @apply mb-1.5 block text-sm font-semibold text-slate-200;
+            }
+            input[type="text"],
+            input[type="email"],
+            input[type="password"],
+            input[type="file"],
+            textarea {
+                @apply w-full rounded-xl border border-slate-600/60 bg-slate-900/70 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-400 shadow-inner shadow-black/20 transition duration-200 ease-out;
+            }
+            input[type="text"]:focus,
+            input[type="email"]:focus,
+            input[type="password"]:focus,
+            input[type="file"]:focus,
+            textarea:focus {
+                @apply border-indigo-400/90 ring-2 ring-indigo-400/30 outline-none;
+            }
+            button {
+                @apply mt-2 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 px-4 py-2.5 text-sm font-semibold text-white transition duration-200 hover:scale-[1.01] hover:from-indigo-400 hover:to-cyan-400;
+            }
+        }
+
+        @layer components {
+            .navbar { @apply sticky top-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl; }
+            .navbar-content { @apply mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-4 md:gap-6; }
+            .navbar-brand { @apply font-display text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-sky-200 to-teal-200; }
+            .navbar-links { @apply ml-auto flex flex-wrap items-center justify-end gap-3 md:gap-4; }
+            .navbar-links a { @apply relative text-sm font-medium text-slate-200 transition hover:text-cyan-200; }
+            .logout-form { @apply m-0 inline; }
+            .logout-btn { @apply mt-0 w-auto bg-transparent p-0 text-sm font-medium text-slate-200 shadow-none hover:scale-100 hover:bg-transparent hover:text-cyan-200; }
+
+            .content-wrapper { @apply flex min-h-[calc(100vh-76px)] items-center justify-center p-4; }
+            .container { @apply mx-auto w-full max-w-5xl; }
+            .card { @apply max-h-[86vh] overflow-auto rounded-2xl border border-white/10 bg-slate-900/70 p-5 shadow-float backdrop-blur-xl md:p-6; }
+
+            .messages { @apply mb-4 grid gap-2; }
+            .message { @apply rounded-xl border-l-4 px-3 py-2 text-sm font-medium; }
+            .message.success { @apply border-emerald-500 bg-emerald-500/10 text-emerald-200; }
+            .message.error { @apply border-rose-500 bg-rose-500/10 text-rose-200; }
+            .message.info { @apply border-sky-500 bg-sky-500/10 text-sky-200; }
+
+            .subtitle { @apply mb-4 text-sm leading-relaxed text-slate-300; }
+            .hint, .help { @apply mt-1 block text-xs text-slate-400; }
+            .divider { @apply my-6 text-center text-sm text-slate-500; }
+            .form-footer { @apply mt-4 border-t border-white/10 pt-4 text-center text-sm text-slate-300; }
+
+            .view-stack { @apply grid gap-4; }
+            .status-grid, .action-grid, .profile-grid { @apply grid gap-3 sm:grid-cols-2; }
+            .status-panel, .profile-item, .success-panel { @apply rounded-xl border border-white/10 bg-slate-800/60 p-3; }
+            .profile-item .label { @apply mb-1 block text-[11px] font-semibold uppercase tracking-wider text-indigo-200; }
+            .profile-item .value { @apply text-sm font-medium text-slate-100; }
+
+            .action-link { @apply block rounded-xl border border-slate-600/60 bg-slate-800/70 px-3 py-2 text-center text-sm font-semibold text-slate-100 transition hover:-translate-y-0.5 hover:border-cyan-300/50 hover:text-cyan-200 hover:no-underline; }
+            .action-link.primary { @apply border-indigo-400/70 bg-indigo-500/20 text-indigo-100; }
+            .action-link.warn { @apply border-rose-400/70 bg-rose-500/20 text-rose-100; }
+
+            .errorlist { @apply mt-1 list-none space-y-1; }
+            .errorlist li { @apply rounded-lg border-l-4 border-rose-500 bg-rose-500/10 px-2 py-1 text-xs text-rose-200; }
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+<nav class="navbar" data-motion="nav">
+    <div class="navbar-content">
+        <a href="{% url 'venuste:home' %}" class="navbar-brand">Venuste</a>
+        <div class="navbar-links">
+            {% if request.user.is_authenticated %}
+                <a href="{% url 'venuste:dashboard' %}">Dashboard</a>
+                <a href="{% url 'venuste:profile' %}">Profile</a>
+                <a href="{% url 'venuste:password_change' %}">Change Password</a>
+                {% if request.user.is_staff or request.user.is_superuser or perms.venuste.access_privileged_portal %}
+                    <a href="{% url 'venuste:privileged_portal' %}">Authorization</a>
+                {% endif %}
+                <form method="post" action="{% url 'venuste:logout' %}" class="logout-form">
+                    {% csrf_token %}
+                    <button type="submit" class="logout-btn">Logout</button>
+                </form>
+            {% else %}
+                <a href="{% url 'venuste:login' %}">Login</a>
+                <a href="{% url 'venuste:signup' %}">Sign Up</a>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+
+<div class="content-wrapper">
+    <div class="container">
+        <div class="card" data-motion="card">
+            {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                        <div class="message {{ message.tags|default:'info' }}" data-motion="item">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            <div data-motion="content">
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+</div>
+<script type="module">
+    import { animate, stagger } from "https://cdn.jsdelivr.net/npm/motion@11.11.13/+esm";
+
+    animate("[data-motion='nav']", { opacity: [0, 1], y: [-8, 0] }, { duration: 0.45, easing: "ease-out" });
+    animate("[data-motion='card']", { opacity: [0, 1], y: [20, 0], scale: [0.985, 1] }, { duration: 0.55, easing: "ease-out" });
+    animate("[data-motion='item']", { opacity: [0, 1], x: [10, 0] }, { delay: stagger(0.08), duration: 0.35, easing: "ease-out" });
+</script>
+</body>
+</html>
