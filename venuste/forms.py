@@ -52,9 +52,16 @@ class CustomPasswordChangeForm(PasswordChangeForm):
 
 
 class PasswordResetForm(forms.Form):
+    username = forms.CharField(
+        max_length=150,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
     email = forms.EmailField(
         widget=forms.EmailInput(attrs={"class": "form-control"})
     )
+
+    def clean_username(self):
+        return self.cleaned_data.get("username", "").strip()
 
     def clean_email(self):
         email = self.cleaned_data.get("email", "").strip().lower()
@@ -93,6 +100,73 @@ class OTPVerificationForm(forms.Form):
                 raise forms.ValidationError("No OTP found. Please request a new one.")
         
         return otp_code
+
+
+class PasswordResetOTPSetForm(forms.Form):
+    otp_code = forms.CharField(
+        max_length=6,
+        min_length=6,
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "Enter 6-digit OTP",
+            "autocomplete": "off",
+        }),
+        label="OTP Code",
+    )
+    new_password1 = forms.CharField(
+        label="New Password",
+        strip=False,
+        widget=forms.PasswordInput(attrs={
+            "class": "form-control",
+            "autocomplete": "new-password",
+        }),
+    )
+    new_password2 = forms.CharField(
+        label="Confirm New Password",
+        strip=False,
+        widget=forms.PasswordInput(attrs={
+            "class": "form-control",
+            "autocomplete": "new-password",
+        }),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+    def clean_otp_code(self):
+        otp_code = self.cleaned_data.get("otp_code", "").strip()
+        if not otp_code.isdigit() or len(otp_code) != 6:
+            raise forms.ValidationError("OTP must be exactly 6 digits.")
+
+        if self.user is None:
+            raise forms.ValidationError("Please request a password reset first.")
+
+        try:
+            otp_record = PasswordResetOTP.objects.get(user=self.user)
+        except PasswordResetOTP.DoesNotExist as exc:
+            raise forms.ValidationError("No OTP found. Please request a new one.") from exc
+
+        if otp_record.used:
+            raise forms.ValidationError("This OTP was already used. Please request a new one.")
+
+        if otp_record.otp_code != otp_code:
+            raise forms.ValidationError("Invalid OTP code.")
+
+        if not otp_record.is_valid():
+            raise forms.ValidationError("OTP has expired.")
+
+        return otp_code
+
+    def clean(self):
+        cleaned_data = super().clean()
+        new_password1 = cleaned_data.get("new_password1")
+        new_password2 = cleaned_data.get("new_password2")
+
+        if new_password1 and new_password2 and new_password1 != new_password2:
+            raise forms.ValidationError("The two password fields didn’t match")
+
+        return cleaned_data
 
 
 class ProfileUpdateForm(forms.ModelForm):
