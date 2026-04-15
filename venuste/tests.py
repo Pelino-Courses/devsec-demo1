@@ -62,6 +62,36 @@ class AuthenticationFlowTests(TestCase):
         self.assertTrue(User.objects.filter(username="newuser").exists())
         self.assertRedirects(response, reverse("venuste:dashboard"))
 
+    def test_registration_redirects_to_safe_internal_next_target(self):
+        response = self.client.post(
+            reverse("venuste:signup"),
+            {
+                "username": "newuser2",
+                "email": "newuser2@example.com",
+                "password1": "NewStrongPass123!",
+                "password2": "NewStrongPass123!",
+                "next": reverse("venuste:profile"),
+            },
+            follow=True,
+        )
+        self.assertTrue(User.objects.filter(username="newuser2").exists())
+        self.assertRedirects(response, reverse("venuste:profile"))
+
+    def test_registration_rejects_external_next_target(self):
+        response = self.client.post(
+            reverse("venuste:signup"),
+            {
+                "username": "newuser3",
+                "email": "newuser3@example.com",
+                "password1": "NewStrongPass123!",
+                "password2": "NewStrongPass123!",
+                "next": "https://evil.example/phish",
+            },
+            follow=True,
+        )
+        self.assertTrue(User.objects.filter(username="newuser3").exists())
+        self.assertRedirects(response, reverse("venuste:dashboard"))
+
     def test_registration_failure_duplicate_user(self):
         response = self.client.post(
             reverse("venuste:signup"),
@@ -81,6 +111,30 @@ class AuthenticationFlowTests(TestCase):
             {
                 "username": "existinguser",
                 "password": "StrongPass123!",
+            },
+            follow=True,
+        )
+        self.assertRedirects(response, reverse("venuste:dashboard"))
+
+    def test_login_redirects_to_safe_internal_next_target(self):
+        response = self.client.post(
+            reverse("venuste:login"),
+            {
+                "username": "existinguser",
+                "password": "StrongPass123!",
+                "next": reverse("venuste:profile"),
+            },
+            follow=True,
+        )
+        self.assertRedirects(response, reverse("venuste:profile"))
+
+    def test_login_rejects_external_next_target(self):
+        response = self.client.post(
+            reverse("venuste:login"),
+            {
+                "username": "existinguser",
+                "password": "StrongPass123!",
+                "next": "https://evil.example/phish",
             },
             follow=True,
         )
@@ -219,6 +273,24 @@ class AuthenticationFlowTests(TestCase):
         response = self.client.get(reverse("venuste:privileged_portal"))
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("venuste:login"), response.url)
+
+    def test_logout_redirects_to_safe_internal_next_target(self):
+        self.client.login(username="existinguser", password="StrongPass123!")
+        response = self.client.post(
+            reverse("venuste:logout"),
+            {"next": reverse("venuste:signup")},
+            follow=True,
+        )
+        self.assertRedirects(response, reverse("venuste:signup"))
+
+    def test_logout_rejects_external_next_target(self):
+        self.client.login(username="existinguser", password="StrongPass123!")
+        response = self.client.post(
+            reverse("venuste:logout"),
+            {"next": "https://evil.example/phish"},
+            follow=True,
+        )
+        self.assertRedirects(response, reverse("venuste:login"))
 
     def test_standard_authenticated_user_denied_privileged_portal(self):
         self.client.login(username="existinguser", password="StrongPass123!")

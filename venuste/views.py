@@ -1,11 +1,13 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import redirect_to_login
 from django.contrib.auth.views import LoginView, PasswordChangeDoneView, PasswordChangeView
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect, render, resolve_url
 from django.utils.decorators import method_decorator
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import csrf_protect
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView
@@ -39,10 +41,35 @@ def get_accessible_profile(user, profile_id):
     return get_object_or_404(profiles, pk=profile_id, user=user)
 
 
+def get_safe_redirect_target(request, default_url):
+    redirect_to = request.POST.get("next") or request.GET.get("next")
+    if redirect_to and url_has_allowed_host_and_scheme(
+        url=redirect_to,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect_to
+    return resolve_url(default_url)
+
+
+def get_requested_redirect_target(request):
+    redirect_to = request.POST.get("next") or request.GET.get("next")
+    if redirect_to and url_has_allowed_host_and_scheme(
+        url=redirect_to,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect_to
+    return ""
+
+
 class UserLoginView(LoginView):
     template_name = "registration/login.html"
     authentication_form = LoginForm
     redirect_authenticated_user = True
+
+    def get_success_url(self):
+        return get_safe_redirect_target(self.request, settings.LOGIN_REDIRECT_URL)
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
@@ -153,12 +180,19 @@ def signup_view(request):
             user = form.save()
             login(request, user)
             messages.success(request, "Registration successful. Welcome!")
-            return redirect("venuste:dashboard")
+            return redirect(get_safe_redirect_target(request, "venuste:dashboard"))
         messages.error(request, "Please correct the errors below.")
     else:
         form = RegistrationForm()
 
-    return render(request, "venuste/signup.html", {"form": form})
+    return render(
+        request,
+        "venuste/signup.html",
+        {
+            "form": form,
+            "next": get_requested_redirect_target(request),
+        },
+    )
 
 
 def home_redirect(request):
