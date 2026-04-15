@@ -10,7 +10,7 @@ from django.contrib.auth.models import User
 from django.utils.html import strip_tags
 from PIL import Image
 
-from .models import UserDocument, UserProfile
+from .models import PasswordResetOTP, UserDocument, UserProfile
 from .throttling import LoginThrottle
 
 
@@ -49,6 +49,50 @@ class LoginForm(AuthenticationForm):
 
 class CustomPasswordChangeForm(PasswordChangeForm):
     pass
+
+
+class PasswordResetForm(forms.Form):
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={"class": "form-control"})
+    )
+
+    def clean_email(self):
+        email = self.cleaned_data.get("email", "").strip().lower()
+        return email
+
+
+class OTPVerificationForm(forms.Form):
+    otp_code = forms.CharField(
+        max_length=6,
+        min_length=6,
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "Enter 6-digit OTP",
+            "autocomplete": "off",
+        }),
+        label="OTP Code",
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+    def clean_otp_code(self):
+        otp_code = self.cleaned_data.get("otp_code", "").strip()
+        if not otp_code.isdigit() or len(otp_code) != 6:
+            raise forms.ValidationError("OTP must be exactly 6 digits.")
+        
+        if self.user:
+            try:
+                otp_record = PasswordResetOTP.objects.get(user=self.user)
+                if otp_record.otp_code != otp_code:
+                    raise forms.ValidationError("Invalid OTP code.")
+                if not otp_record.is_valid():
+                    raise forms.ValidationError("OTP has expired.")
+            except PasswordResetOTP.DoesNotExist:
+                raise forms.ValidationError("No OTP found. Please request a new one.")
+        
+        return otp_code
 
 
 class ProfileUpdateForm(forms.ModelForm):

@@ -34,6 +34,16 @@ def env_list(name, default=""):
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def env_int(name, default=0):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 IS_TESTING = "test" in sys.argv
 
 
@@ -177,6 +187,22 @@ SECURE_HSTS_PRELOAD = env_bool('DJANGO_SECURE_HSTS_PRELOAD', default=False)
 
 LOGIN_THROTTLE_FAILURE_LIMIT = 5
 LOGIN_THROTTLE_LOCKOUT_SECONDS = 15 * 60
+
+PASSWORD_RESET_THROTTLE_REQUEST_LIMIT = env_int('DJANGO_PASSWORD_RESET_THROTTLE_REQUEST_LIMIT', 3)
+PASSWORD_RESET_THROTTLE_LOCKOUT_SECONDS = env_int('DJANGO_PASSWORD_RESET_THROTTLE_LOCKOUT_SECONDS', 15 * 60)
+PASSWORD_RESET_TIMEOUT = env_int('DJANGO_PASSWORD_RESET_TIMEOUT', 60 * 60)
+
+EMAIL_BACKEND = os.environ.get(
+    'DJANGO_EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend' if DEBUG and not IS_TESTING else 'django.core.mail.backends.smtp.EmailBackend',
+)
+EMAIL_HOST = os.environ.get('DJANGO_EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = env_int('DJANGO_EMAIL_PORT', 587)
+EMAIL_USE_TLS = env_bool('DJANGO_EMAIL_USE_TLS', default=True)
+EMAIL_USE_SSL = env_bool('DJANGO_EMAIL_USE_SSL', default=False)
+EMAIL_HOST_USER = os.environ.get('DJANGO_EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('DJANGO_EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('DJANGO_DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'no-reply@example.com')
 
 LOGIN_URL = 'venuste:login'
 LOGIN_REDIRECT_URL = 'venuste:dashboard'

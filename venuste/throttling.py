@@ -105,3 +105,81 @@ class LoginThrottle:
             return
 
         self._save_state(key, failures, None)
+
+
+class PasswordResetThrottle:
+    def __init__(self, request, email):
+        self.request = request
+        self.email = self._normalize_email(email)
+        self.ip_address = LoginThrottle._get_client_ip(request)
+
+    @staticmethod
+    def _normalize_email(email):
+        return (email or "").strip().lower() or "__empty__"
+
+    @property
+    def email_key(self):
+        return f"password-reset-throttle:email:{self.email}"
+
+    @property
+    def ip_key(self):
+        return f"password-reset-throttle:ip:{self.ip_address}"
+
+    @property
+    def request_limit(self):
+        return getattr(settings, "PASSWORD_RESET_THROTTLE_REQUEST_LIMIT", 3)
+
+    @property
+    def lockout_seconds(self):
+        return getattr(settings, "PASSWORD_RESET_THROTTLE_LOCKOUT_SECONDS", 15 * 60)
+
+    @property
+    def lockout_delta(self):
+        return timedelta(seconds=self.lockout_seconds)
+
+    def _empty_state(self):
+        return {"attempts": 0, "locked_until": None}
+
+    def _load_state(self, key):
+        state = cache.get(key) or self._empty_state()
+        locked_until = state.get("locked_until")
+        if locked_until and locked_until <= timezone.now():
+            cache.delete(key)
+            return self._empty_state()
+        return {
+            "attempts": int(state.get("attempts", 0)),
+            "locked_until": locked_until,
+        }
+
+    def _save_state(self, key, attempts, locked_until):
+        cache.set(
+            key,
+            {"attempts": attempts, "locked_until": locked_until},
+            timeout=self.lockout_seconds,
+        )
+
+    def _is_locked(self, state):
+        locked_until = state["locked_until"]
+        return bool(locked_until and locked_until > timezone.now())
+
+    def ensure_allowed(self):
+        email_state = self._load_state(self.email_key)
+        ip_state = self._load_state(self.ip_key)
+        if self._is_locked(email_state) or self._is_locked(ip_state):
+            raise ValidationError("Too many password reset requests. Please try again later.")
+
+    def record_attempt(self):
+        self._increment(self.email_key)
+        self._increment(self.ip_key)
+
+    def _increment(self, key):
+        state = self._load_state(key)
+        if self._is_locked(state):
+            return
+
+        attempts = state["attempts"] + 1
+        if attempts >= self.request_limit:
+            self._save_state(key, self.request_limit, timezone.now() + self.lockout_delta)
+            return
+
+        self._save_state(key, attempts, None)

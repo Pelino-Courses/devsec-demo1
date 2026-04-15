@@ -6,13 +6,14 @@ from .views import (
     DashboardView,
     DocumentDownloadView,
     DocumentManageView,
+    PasswordResetConfirmView,
+    PasswordResetOTPView,
     ProfileManageByIdView,
     ProfileView,
     PrivilegedPortalView,
     UserLoginView,
     UserPasswordChangeDoneView,
     UserPasswordChangeView,
-    UserPasswordResetConfirmView,
     UserPasswordResetView,
     home_redirect,
     signup_view,
@@ -26,12 +27,7 @@ urlpatterns = [
     path("login/", UserLoginView.as_view(), name="login"),
     path(
         "password-reset/",
-        UserPasswordResetView.as_view(
-            template_name="venuste/password_reset_form.html",
-            email_template_name="venuste/password_reset_email.html",
-            subject_template_name="venuste/password_reset_subject.txt",
-            success_url=reverse_lazy("venuste:password_reset_done"),
-        ),
+        UserPasswordResetView.as_view(),
         name="password_reset",
     ),
     path(
@@ -40,11 +36,13 @@ urlpatterns = [
         name="password_reset_done",
     ),
     path(
-        "reset/<uidb64>/<token>/",
-        UserPasswordResetConfirmView.as_view(
-            template_name="venuste/password_reset_confirm.html",
-            success_url=reverse_lazy("venuste:password_reset_complete"),
-        ),
+        "password-reset/otp/",
+        PasswordResetOTPView.as_view(),
+        name="password_reset_otp",
+    ),
+    path(
+        "password-reset/confirm/",
+        PasswordResetConfirmView.as_view(),
         name="password_reset_confirm",
     ),
     path(

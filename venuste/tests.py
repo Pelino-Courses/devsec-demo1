@@ -582,7 +582,7 @@ class AuthenticationFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "If an account exists")
         self.assertEqual(len(mail.outbox), 1)
-        self.assertIn("Venuste password reset instructions", mail.outbox[0].subject)
+        self.assertIn("OTP", mail.outbox[0].subject)
 
     def test_password_reset_request_does_not_enumerate_missing_user(self):
         mail.outbox.clear()
@@ -595,19 +595,11 @@ class AuthenticationFlowTests(TestCase):
         self.assertContains(response, "If an account exists")
         self.assertEqual(len(mail.outbox), 0)
 
-    def test_password_reset_confirm_invalid_token_is_rejected_safely(self):
-        response = self.client.get(
-            reverse(
-                "venuste:password_reset_confirm",
-                kwargs={"uidb64": "invalid", "token": "invalid-token"},
-            ),
-            follow=True,
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Invalid or Expired Link")
-
-    def test_password_reset_confirm_updates_password(self):
+    def test_password_reset_otp_flow_end_to_end(self):
+        from .models import PasswordResetOTP
+        
         mail.outbox.clear()
+        
         response = self.client.post(
             reverse("venuste:password_reset"),
             {"email": "existing@example.com"},
@@ -615,29 +607,54 @@ class AuthenticationFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(mail.outbox), 1)
-
+        
         email_body = mail.outbox[0].body
-        match = re.search(r"http://testserver(?P<path>/reset/.+/)", email_body)
+        match = re.search(r"OTP is: (\d{6})", email_body)
         self.assertIsNotNone(match)
-        reset_path = match.group("path")
-
-        form_response = self.client.get(reset_path, follow=True)
-        self.assertEqual(form_response.status_code, 200)
-        confirm_path = form_response.request["PATH_INFO"]
-
-        reset_response = self.client.post(
-            confirm_path,
+        otp_code = match.group(1)
+        
+        response = self.client.post(
+            reverse("venuste:password_reset_otp"),
+            {"otp_code": otp_code},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "OTP verified")
+        
+        response = self.client.post(
+            reverse("venuste:password_reset_confirm"),
             {
                 "new_password1": "ResetStrongPass123!",
                 "new_password2": "ResetStrongPass123!",
             },
             follow=True,
         )
-
+        
         self.user.refresh_from_db()
-        self.assertEqual(reset_response.status_code, 200)
-        self.assertContains(reset_response, "Password Updated")
+        self.assertEqual(response.status_code, 200)
         self.assertTrue(self.user.check_password("ResetStrongPass123!"))
+        
+        otp_record = PasswordResetOTP.objects.get(user=self.user)
+        self.assertTrue(otp_record.used)
+
+    def test_password_reset_otp_rejects_invalid_code(self):
+        mail.outbox.clear()
+        
+        response = self.client.post(
+            reverse("venuste:password_reset"),
+            {"email": "existing@example.com"},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        
+        response = self.client.post(
+            reverse("venuste:password_reset_otp"),
+            {"otp_code": "000000"},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Invalid OTP")
 
     def test_password_reset_confirm_rejects_password_mismatch(self):
         uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
@@ -715,6 +732,54 @@ class AuthenticationFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "If an account exists")
         self.assertEqual(len(mail.outbox), 1)
+
+    @override_settings(
+        PASSWORD_RESET_THROTTLE_REQUEST_LIMIT=1,
+        PASSWORD_RESET_THROTTLE_LOCKOUT_SECONDS=60,
+    )
+    def test_password_reset_request_throttles_repeated_attempts(self):
+        mail.outbox.clear()
+
+        first_response = self.client.post(
+            reverse("venuste:password_reset"),
+            {"email": "existing@example.com"},
+            follow=True,
+        )
+        second_response = self.client.post(
+            reverse("venuste:password_reset"),
+            {"email": "existing@example.com"},
+            follow=True,
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertContains(first_response, "If an account exists")
+        self.assertContains(second_response, "If an account exists")
+        self.assertEqual(len(mail.outbox), 1)
+
+    @override_settings(
+        PASSWORD_RESET_THROTTLE_REQUEST_LIMIT=1,
+        PASSWORD_RESET_THROTTLE_LOCKOUT_SECONDS=60,
+    )
+    def test_password_reset_throttle_keeps_anti_enumeration_for_unknown_email(self):
+        mail.outbox.clear()
+
+        first_response = self.client.post(
+            reverse("venuste:password_reset"),
+            {"email": "missing@example.com"},
+            follow=True,
+        )
+        second_response = self.client.post(
+            reverse("venuste:password_reset"),
+            {"email": "missing@example.com"},
+            follow=True,
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertContains(first_response, "If an account exists")
+        self.assertContains(second_response, "If an account exists")
+        self.assertEqual(len(mail.outbox), 0)
 
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
