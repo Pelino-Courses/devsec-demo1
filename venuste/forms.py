@@ -21,6 +21,29 @@ class RegistrationForm(UserCreationForm):
         model = User
         fields = ("username", "email", "password1", "password2")
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["username"].widget.attrs.update({
+            "autocomplete": "username",
+            "autocapitalize": "none",
+            "spellcheck": "false",
+            "placeholder": "Choose a username",
+        })
+        self.fields["email"].widget.attrs.update({
+            "autocomplete": "email",
+            "autocapitalize": "none",
+            "spellcheck": "false",
+            "placeholder": "you@example.com",
+        })
+        self.fields["password1"].widget.attrs.update({
+            "autocomplete": "new-password",
+            "placeholder": "Create a password",
+        })
+        self.fields["password2"].widget.attrs.update({
+            "autocomplete": "new-password",
+            "placeholder": "Confirm your password",
+        })
+
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
         if User.objects.filter(email__iexact=email).exists():
@@ -31,6 +54,19 @@ class RegistrationForm(UserCreationForm):
 class LoginForm(AuthenticationForm):
     username = forms.CharField(max_length=150)
     password = forms.CharField(widget=forms.PasswordInput)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["username"].widget.attrs.update({
+            "autocomplete": "username",
+            "autocapitalize": "none",
+            "spellcheck": "false",
+            "placeholder": "Enter your username",
+        })
+        self.fields["password"].widget.attrs.update({
+            "autocomplete": "current-password",
+            "placeholder": "Enter your password",
+        })
 
     def clean(self):
         username = self.data.get("username", "")
@@ -52,9 +88,16 @@ class CustomPasswordChangeForm(PasswordChangeForm):
 
 
 class PasswordResetForm(forms.Form):
-    email = forms.EmailField(
-        widget=forms.EmailInput(attrs={"class": "form-control"})
-    )
+    email = forms.EmailField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["email"].widget.attrs.update({
+            "autocomplete": "email",
+            "autocapitalize": "none",
+            "spellcheck": "false",
+            "placeholder": "Enter your account email",
+        })
 
     def clean_email(self):
         email = self.cleaned_data.get("email", "").strip().lower()
@@ -126,6 +169,10 @@ class PasswordResetOTPSetForm(forms.Form):
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.user = user
+        self.fields["otp_code"].widget.attrs.update({
+            "inputmode": "numeric",
+            "pattern": "[0-9]*",
+        })
 
     def clean_otp_code(self):
         otp_code = self.cleaned_data.get("otp_code", "").strip()

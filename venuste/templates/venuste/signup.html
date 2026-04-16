@@ -8,31 +8,93 @@
 
 <form method="post" novalidate>
     {% csrf_token %}
+    {% for hidden in form.hidden_fields %}
+        {{ hidden }}
+    {% endfor %}
     {% if next %}
         <input type="hidden" name="next" value="{{ next }}">
     {% endif %}
     {% if form.non_field_errors %}
         {{ form.non_field_errors }}
     {% endif %}
-    
-    {% for field in form %}
-        <p>
-            {% if field.label %}
-                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+
+    <div class="form-frame">
+        <div class="field-group">
+            <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+            {{ form.username }}
+            {% if form.username.errors %}
+                {{ form.username.errors }}
             {% endif %}
-            {{ field }}
-            {% if field.errors %}
-                {{ field.errors }}
+            <span class="help">Pick a username you can remember easily.</span>
+        </div>
+
+        <div class="field-group">
+            <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+            {{ form.email }}
+            {% if form.email.errors %}
+                {{ form.email.errors }}
             {% endif %}
-        </p>
-    {% endfor %}
+            <span class="help">We only use this for account security workflows.</span>
+        </div>
+
+        <div class="field-group">
+            <label for="{{ form.password1.id_for_label }}">{{ form.password1.label }}</label>
+            <div class="field-shell">
+                {{ form.password1 }}
+                <button type="button" class="field-toggle" data-password-toggle aria-controls="{{ form.password1.id_for_label }}" aria-label="Show password" aria-pressed="false">
+                    Show
+                </button>
+            </div>
+            {% if form.password1.errors %}
+                {{ form.password1.errors }}
+            {% endif %}
+        </div>
+
+        <div class="field-group">
+            <label for="{{ form.password2.id_for_label }}">{{ form.password2.label }}</label>
+            <div class="field-shell">
+                {{ form.password2 }}
+                <button type="button" class="field-toggle" data-password-toggle aria-controls="{{ form.password2.id_for_label }}" aria-label="Show password" aria-pressed="false">
+                    Show
+                </button>
+            </div>
+            {% if form.password2.errors %}
+                {{ form.password2.errors }}
+            {% endif %}
+        </div>
+    </div>
 
     <p class="hint">Use at least 8 characters and include letters and numbers in your password.</p>
-    
+
     <button type="submit">Create Account</button>
 </form>
 
 <div class="form-footer">
     <p>Already have an account? <a href="{% url 'venuste:login' %}">Sign in here</a></p>
 </div>
+
+<script>
+    (function () {
+        const toggleButtons = document.querySelectorAll("[data-password-toggle]");
+        if (!toggleButtons.length) {
+            return;
+        }
+
+        toggleButtons.forEach(function (toggleButton) {
+            const inputId = toggleButton.getAttribute("aria-controls");
+            const passwordInput = inputId ? document.getElementById(inputId) : null;
+            if (!passwordInput) {
+                return;
+            }
+
+            toggleButton.addEventListener("click", function () {
+                const showPassword = passwordInput.type === "password";
+                passwordInput.type = showPassword ? "text" : "password";
+                toggleButton.textContent = showPassword ? "Hide" : "Show";
+                toggleButton.setAttribute("aria-label", showPassword ? "Hide password" : "Show password");
+                toggleButton.setAttribute("aria-pressed", showPassword ? "true" : "false");
+            });
+        });
+    })();
+</script>
 {% endblock %}

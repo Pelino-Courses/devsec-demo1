@@ -89,6 +89,15 @@
             .hint, .help { @apply mt-1 block text-xs text-slate-400; }
             .divider { @apply my-6 text-center text-sm text-slate-500; }
             .form-footer { @apply mt-4 border-t border-white/10 pt-4 text-center text-sm text-slate-300; }
+            .form-frame { @apply grid gap-4; }
+            .field-group { @apply grid gap-1.5; }
+            .field-shell { @apply relative; }
+            .field-shell input { @apply pr-11; }
+            .field-toggle {
+                @apply absolute right-2 top-1/2 mt-0 w-auto -translate-y-1/2 rounded-lg border border-white/10 bg-slate-800/80 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-200 shadow-none transition hover:scale-100 hover:border-cyan-300/50 hover:bg-slate-700/90 hover:text-cyan-100;
+            }
+            .auth-note { @apply mt-3 rounded-xl border border-cyan-400/20 bg-cyan-500/5 px-3 py-2 text-xs leading-relaxed text-cyan-100/90; }
+            .form-footer a { @apply font-semibold text-cyan-200 transition hover:text-cyan-100 hover:underline; }
 
             .view-stack { @apply grid gap-4; }
             .status-grid, .action-grid, .profile-grid { @apply grid gap-3 sm:grid-cols-2; }

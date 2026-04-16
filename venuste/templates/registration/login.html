@@ -8,29 +8,45 @@
 
 <form method="post" novalidate>
     {% csrf_token %}
+    {% for hidden in form.hidden_fields %}
+        {{ hidden }}
+    {% endfor %}
     {% if next %}
         <input type="hidden" name="next" value="{{ next }}">
     {% endif %}
     {% if form.non_field_errors %}
         {{ form.non_field_errors }}
     {% endif %}
-    
-    {% for field in form %}
-        <p>
-            {% if field.label %}
-                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+
+    <div class="form-frame" data-login-form>
+        <div class="field-group">
+            <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+            {{ form.username }}
+            {% if form.username.errors %}
+                {{ form.username.errors }}
             {% endif %}
-            {{ field }}
-            {% if field.errors %}
-                {{ field.errors }}
+            <span class="help">Use your registered username.</span>
+        </div>
+
+        <div class="field-group">
+            <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+            <div class="field-shell">
+                {{ form.password }}
+                <button type="button" class="field-toggle" data-password-toggle aria-controls="{{ form.password.id_for_label }}" aria-label="Show password" aria-pressed="false">
+                    Show
+                </button>
+            </div>
+            {% if form.password.errors %}
+                {{ form.password.errors }}
             {% endif %}
-        </p>
-    {% endfor %}
-    
+            <span class="help">Password is case-sensitive.</span>
+        </div>
+    </div>
+
     <button type="submit">Sign In</button>
 </form>
 
-<p class="subtitle" style="margin-top: 0.75rem;">
+<p class="auth-note" role="note">
     After repeated failed logins, this account and IP pair is paused briefly to slow brute-force attempts.
 </p>
 
@@ -38,4 +54,27 @@
     <p>Don't have an account? <a href="{% url 'venuste:signup' %}">Create one now</a></p>
     <p style="margin-top:0.4rem;">Forgot your password? <a href="{% url 'venuste:password_reset' %}">Reset it securely</a></p>
 </div>
+
+<script>
+    (function () {
+        const toggleButton = document.querySelector("[data-password-toggle]");
+        if (!toggleButton) {
+            return;
+        }
+
+        const inputId = toggleButton.getAttribute("aria-controls");
+        const passwordInput = inputId ? document.getElementById(inputId) : null;
+        if (!passwordInput) {
+            return;
+        }
+
+        toggleButton.addEventListener("click", function () {
+            const showPassword = passwordInput.type === "password";
+            passwordInput.type = showPassword ? "text" : "password";
+            toggleButton.textContent = showPassword ? "Hide" : "Show";
+            toggleButton.setAttribute("aria-label", showPassword ? "Hide password" : "Show password");
+            toggleButton.setAttribute("aria-pressed", showPassword ? "true" : "false");
+        });
+    })();
+</script>
 {% endblock %}
