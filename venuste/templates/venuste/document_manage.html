@@ -4,7 +4,7 @@
 
 {% block content %}
 <h1>Secure Document Upload</h1>
-<p class="subtitle">Upload PDF or TXT files only. Documents are stored privately and require authentication for download.</p>
+<p class="subtitle">Upload PDF or TXT files only. Documents are stored privately and require authentication to download.</p>
 
 <div class="view-stack">
     <form method="post" enctype="multipart/form-data">
@@ -26,7 +26,7 @@
             {% if form.file.errors %}
                 {{ form.file.errors }}
             {% endif %}
-            <span class="hint">Accepted: PDF, TXT. Maximum size: 5MB.</span>
+            <span class="hint">Accepted formats: PDF, TXT. Maximum size: 5MB.</span>
         </p>
 
         <button type="submit">Upload Document</button>

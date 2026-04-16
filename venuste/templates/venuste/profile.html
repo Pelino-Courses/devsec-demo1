@@ -4,7 +4,7 @@
 
 {% block content %}
 <h1>Account Profile</h1>
-<p class="subtitle">Your account details at a glance.</p>
+<p class="subtitle">Review and update your account details.</p>
 
 <div class="view-stack">
     <div class="profile-item sm:col-span-2">
@@ -16,7 +16,7 @@
                 class="mt-2 mb-3 h-[72px] w-[72px] rounded-full border-2 border-indigo-300/70 object-cover"
             >
         {% else %}
-            <span class="value">No profile picture uploaded.</span>
+            <span class="value">No profile picture uploaded yet.</span>
         {% endif %}
     </div>
 
@@ -39,9 +39,9 @@
             {% if form.profile_picture.errors %}
                 {{ form.profile_picture.errors }}
             {% endif %}
-            <span class="hint">Accepted: JPG, PNG, WEBP. Max size: 2MB.</span>
+            <span class="hint">Accepted formats: JPG, PNG, WEBP. Maximum size: 2MB.</span>
         </p>
-        <button type="submit">Save Profile</button>
+        <button type="submit">Save Changes</button>
     </form>
 
     <div class="profile-grid">

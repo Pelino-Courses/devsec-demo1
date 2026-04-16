@@ -233,11 +233,11 @@ class UserPasswordResetView(TemplateView):
                 subject="Venuste Password Reset - Your OTP Code",
                 message=f"""Hello {user.username},
 
-You requested a password reset for your Venuste account.
+We received a request to reset your Venuste account password.
 
 Your one-time password (OTP) is: {otp_code}
 
-This code will expire in 10 minutes. If you did not request this, you can safely ignore this email.
+This code expires in 10 minutes. If you did not request this, you can safely ignore this email.
 
 Thanks,
 Venuste Security Team""",

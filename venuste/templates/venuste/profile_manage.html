@@ -4,7 +4,7 @@
 
 {% block content %}
 <h1>Secure Profile Management</h1>
-<p class="subtitle">Object-level checks ensure only authorized users can access this profile.</p>
+<p class="subtitle">Access is enforced with object-level authorization checks.</p>
 
 <div class="view-stack">
     <div class="profile-grid">
@@ -22,7 +22,7 @@
                 {% if is_owner %}
                     Owner access
                 {% elif is_privileged_user %}
-                    Privileged role access
+                    Privileged access
                 {% else %}
                     Unauthorized
                 {% endif %}
@@ -49,9 +49,9 @@
             {% if form.profile_picture.errors %}
                 {{ form.profile_picture.errors }}
             {% endif %}
-            <span class="hint">Accepted: JPG, PNG, WEBP. Max size: 2MB.</span>
+            <span class="hint">Accepted formats: JPG, PNG, WEBP. Maximum size: 2MB.</span>
         </p>
-        <button type="submit">Save Profile</button>
+        <button type="submit">Save Changes</button>
     </form>
 
     <div class="action-grid">

@@ -5,7 +5,7 @@
 {% block content %}
 <div class="view-stack text-center">
     <h1>Welcome, {{ request.user.username }}!</h1>
-    <p class="subtitle">Your account is active and secure.</p>
+    <p class="subtitle">Your account is active and protected.</p>
 
     <div class="status-grid">
         <div class="status-panel"><p><strong>Status</strong><br>Active</p></div>
@@ -13,11 +13,11 @@
     </div>
 
     <div class="action-grid">
-        <a href="{% url 'venuste:profile' %}" class="action-link">View Profile</a>
+        <a href="{% url 'venuste:profile' %}" class="action-link">Open Profile</a>
         <a href="{% url 'venuste:documents' %}" class="action-link">My Documents</a>
         <a href="{% url 'venuste:password_change' %}" class="action-link primary">Change Password</a>
         {% if is_privileged_user %}
-            <a href="{% url 'venuste:privileged_portal' %}" class="action-link warn sm:col-span-2">Open Authorization Portal</a>
+            <a href="{% url 'venuste:privileged_portal' %}" class="action-link warn sm:col-span-2">Open Admin Portal</a>
         {% endif %}
     </div>
 </div>

@@ -4,7 +4,7 @@
 
 {% block content %}
 <h1>Create Account</h1>
-<p class="subtitle">Join us today and secure your digital presence</p>
+<p class="subtitle">Create your account to access Venuste securely.</p>
 
 <form method="post" novalidate>
     {% csrf_token %}
@@ -25,7 +25,7 @@
             {% if form.username.errors %}
                 {{ form.username.errors }}
             {% endif %}
-            <span class="help">Pick a username you can remember easily.</span>
+            <span class="help">Choose a username you can remember.</span>
         </div>
 
         <div class="field-group">
@@ -34,7 +34,7 @@
             {% if form.email.errors %}
                 {{ form.email.errors }}
             {% endif %}
-            <span class="help">We only use this for account security workflows.</span>
+            <span class="help">We use this email only for account security and recovery.</span>
         </div>
 
         <div class="field-group">
@@ -64,13 +64,13 @@
         </div>
     </div>
 
-    <p class="hint">Use at least 8 characters and include letters and numbers in your password.</p>
+    <p class="hint">Use at least 8 characters with uppercase, lowercase, numbers, and symbols.</p>
 
     <button type="submit">Create Account</button>
 </form>
 
 <div class="form-footer">
-    <p>Already have an account? <a href="{% url 'venuste:login' %}">Sign in here</a></p>
+    <p>Already have an account? <a href="{% url 'venuste:login' %}">Sign in</a></p>
 </div>
 
 <script>
