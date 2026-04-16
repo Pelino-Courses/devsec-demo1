@@ -4,6 +4,7 @@ from django.core.validators import FileExtensionValidator
 from django.contrib.auth.forms import (
     AuthenticationForm,
     PasswordChangeForm,
+    SetPasswordForm,
     UserCreationForm,
 )
 from django.contrib.auth.models import User
@@ -33,7 +34,7 @@ class RegistrationForm(UserCreationForm):
             "autocomplete": "email",
             "autocapitalize": "none",
             "spellcheck": "false",
-            "placeholder": "you@example.com",
+            "placeholder": "Enter your valid email address",
         })
         self.fields["password1"].widget.attrs.update({
             "autocomplete": "new-password",
@@ -119,6 +120,10 @@ class OTPVerificationForm(forms.Form):
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.user = user
+        self.fields["otp_code"].widget.attrs.update({
+            "inputmode": "numeric",
+            "pattern": "[0-9]*",
+        })
 
     def clean_otp_code(self):
         otp_code = self.cleaned_data.get("otp_code", "").strip()
@@ -207,6 +212,19 @@ class PasswordResetOTPSetForm(forms.Form):
             raise forms.ValidationError("The two password fields didn’t match")
 
         return cleaned_data
+
+
+class PasswordResetSetPasswordForm(SetPasswordForm):
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(user, *args, **kwargs)
+        self.fields["new_password1"].widget.attrs.update({
+            "autocomplete": "new-password",
+            "placeholder": "Create your new password",
+        })
+        self.fields["new_password2"].widget.attrs.update({
+            "autocomplete": "new-password",
+            "placeholder": "Confirm your new password",
+        })
 
 
 class ProfileUpdateForm(forms.ModelForm):

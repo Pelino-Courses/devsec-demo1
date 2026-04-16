@@ -581,7 +581,7 @@ class AuthenticationFlowTests(TestCase):
             follow=False,
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("venuste:password_reset_confirm"))
+        self.assertEqual(response.url, reverse("venuste:password_reset_otp"))
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("OTP", mail.outbox[0].subject)
 
@@ -615,7 +615,7 @@ class AuthenticationFlowTests(TestCase):
             follow=False,
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("venuste:password_reset_confirm"))
+        self.assertEqual(response.url, reverse("venuste:password_reset_otp"))
         self.assertEqual(len(mail.outbox), 1)
 
         email_body = mail.outbox[0].body
@@ -623,10 +623,17 @@ class AuthenticationFlowTests(TestCase):
         self.assertIsNotNone(match)
         otp_code = match.group(1)
 
+        otp_response = self.client.post(
+            reverse("venuste:password_reset_otp"),
+            {"otp_code": otp_code},
+            follow=False,
+        )
+        self.assertEqual(otp_response.status_code, 302)
+        self.assertEqual(otp_response.url, reverse("venuste:password_reset_confirm"))
+
         confirm_response = self.client.post(
             reverse("venuste:password_reset_confirm"),
             {
-                "otp_code": otp_code,
                 "new_password1": "ResetStrongPass123!",
                 "new_password2": "ResetStrongPass123!",
             },
@@ -651,11 +658,9 @@ class AuthenticationFlowTests(TestCase):
         self.assertEqual(response.status_code, 302)
 
         response = self.client.post(
-            reverse("venuste:password_reset_confirm"),
+            reverse("venuste:password_reset_otp"),
             {
                 "otp_code": "000000",
-                "new_password1": "ResetStrongPass123!",
-                "new_password2": "ResetStrongPass123!",
             },
             follow=True,
         )
@@ -678,16 +683,35 @@ class AuthenticationFlowTests(TestCase):
         otp_code = match.group(1)
 
         response = self.client.post(
+            reverse("venuste:password_reset_otp"),
+            {"otp_code": otp_code},
+            follow=False,
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("venuste:password_reset_confirm"))
+
+        response = self.client.post(
             reverse("venuste:password_reset_confirm"),
             {
-                "otp_code": otp_code,
                 "new_password1": "ResetStrongPass123!",
                 "new_password2": "DifferentStrongPass123!",
             },
             follow=True,
         )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "The two password fields didn’t match")
+        self.assertContains(response, "The two password fields didn")
+
+    def test_password_reset_confirm_requires_otp_verification(self):
+        response = self.client.post(
+            reverse("venuste:password_reset"),
+            {"email": "existing@example.com"},
+            follow=False,
+        )
+        self.assertEqual(response.status_code, 302)
+
+        response = self.client.get(reverse("venuste:password_reset_confirm"), follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Verify Your OTP")
 
     def test_profile_update_rejects_missing_csrf_token(self):
         csrf_client = Client(enforce_csrf_checks=True)
@@ -741,7 +765,7 @@ class AuthenticationFlowTests(TestCase):
             follow=True,
         )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Verify OTP and Set Password")
+        self.assertContains(response, "Verify Your OTP")
         self.assertEqual(len(mail.outbox), 1)
 
     @override_settings(
@@ -764,7 +788,7 @@ class AuthenticationFlowTests(TestCase):
 
         self.assertEqual(first_response.status_code, 200)
         self.assertEqual(second_response.status_code, 200)
-        self.assertContains(first_response, "Verify OTP and Set Password")
+        self.assertContains(first_response, "Verify Your OTP")
         self.assertContains(second_response, "Check Your Email")
         self.assertEqual(len(mail.outbox), 1)
 

@@ -7,6 +7,7 @@ from .views import (
     DocumentDownloadView,
     DocumentManageView,
     PasswordResetConfirmView,
+    PasswordResetOTPView,
     ProfileManageByIdView,
     ProfileView,
     PrivilegedPortalView,
@@ -33,6 +34,11 @@ urlpatterns = [
         "password-reset/done/",
         PasswordResetDoneView.as_view(template_name="venuste/password_reset_done.html"),
         name="password_reset_done",
+    ),
+    path(
+        "password-reset/otp/",
+        PasswordResetOTPView.as_view(),
+        name="password_reset_otp",
     ),
     path(
         "password-reset/confirm/",

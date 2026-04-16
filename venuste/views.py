@@ -26,8 +26,9 @@ from .forms import (
     CustomPasswordChangeForm,
     DocumentUploadForm,
     LoginForm,
-    PasswordResetOTPSetForm,
+    OTPVerificationForm,
     PasswordResetForm,
+    PasswordResetSetPasswordForm,
     ProfileUpdateForm,
     RegistrationForm,
 )
@@ -266,12 +267,89 @@ Venuste Security Team""",
 
         request.session["password_reset_email"] = user.email
         request.session["password_reset_user_id"] = user.id
+        request.session["password_reset_otp_verified"] = False
+        request.session["password_reset_otp_attempts"] = 0
         messages.success(request, "OTP sent to your email. Please check your inbox.")
-        return redirect("venuste:password_reset_confirm")
+        return redirect("venuste:password_reset_otp")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["form"] = PasswordResetForm()
+        return context
+
+
+class PasswordResetOTPView(TemplateView):
+    template_name = "venuste/password_reset_otp.html"
+    otp_attempt_limit = 5
+
+    def get(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return redirect("venuste:dashboard")
+        if "password_reset_user_id" not in request.session:
+            messages.warning(request, "Please request a password reset first.")
+            return redirect("venuste:password_reset")
+        if request.session.get("password_reset_otp_verified"):
+            return redirect("venuste:password_reset_confirm")
+        return super().get(request, *args, **kwargs)
+
+    def _current_attempts(self):
+        return int(self.request.session.get("password_reset_otp_attempts", 0))
+
+    def _set_attempts(self, attempts):
+        self.request.session["password_reset_otp_attempts"] = attempts
+
+    def _clear_reset_session(self):
+        for key in [
+            "password_reset_email",
+            "password_reset_user_id",
+            "password_reset_otp_verified",
+            "password_reset_otp_attempts",
+        ]:
+            self.request.session.pop(key, None)
+
+    def post(self, request, *args, **kwargs):
+        user_id = request.session.get("password_reset_user_id")
+        if not user_id:
+            messages.warning(request, "Please request a password reset first.")
+            return redirect("venuste:password_reset")
+
+        if self._current_attempts() >= self.otp_attempt_limit:
+            self._clear_reset_session()
+            messages.error(request, "Too many invalid OTP attempts. Please request a new reset code.")
+            return redirect("venuste:password_reset")
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            messages.error(request, "User not found. Please try again.")
+            return redirect("venuste:password_reset")
+
+        form = OTPVerificationForm(request.POST, user=user)
+        if not form.is_valid():
+            attempts = self._current_attempts() + 1
+            self._set_attempts(attempts)
+            if attempts >= self.otp_attempt_limit:
+                self._clear_reset_session()
+                messages.error(request, "Too many invalid OTP attempts. Please request a new reset code.")
+                return redirect("venuste:password_reset")
+            context = {"form": form}
+            return self.render_to_response(context)
+
+        request.session["password_reset_otp_verified"] = True
+        request.session["password_reset_otp_attempts"] = 0
+        return redirect("venuste:password_reset_confirm")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user_id = self.request.session.get("password_reset_user_id")
+        user = None
+        if user_id:
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                user = None
+        context["form"] = kwargs.get("form") or OTPVerificationForm(user=user)
+        context["remaining_attempts"] = max(0, self.otp_attempt_limit - self._current_attempts())
         return context
 
 
@@ -284,7 +362,19 @@ class PasswordResetConfirmView(TemplateView):
         if "password_reset_user_id" not in request.session:
             messages.warning(request, "Please request a password reset first.")
             return redirect("venuste:password_reset")
+        if not request.session.get("password_reset_otp_verified"):
+            messages.warning(request, "Please verify your OTP code before creating a new password.")
+            return redirect("venuste:password_reset_otp")
         return super().get(request, *args, **kwargs)
+
+    def _clear_reset_session(self, request):
+        for key in [
+            "password_reset_email",
+            "password_reset_user_id",
+            "password_reset_otp_verified",
+            "password_reset_otp_attempts",
+        ]:
+            request.session.pop(key, None)
 
     def post(self, request, *args, **kwargs):
         user_id = request.session.get("password_reset_user_id")
@@ -292,29 +382,31 @@ class PasswordResetConfirmView(TemplateView):
             messages.warning(request, "Please request a password reset first.")
             return redirect("venuste:password_reset")
 
+        if not request.session.get("password_reset_otp_verified"):
+            messages.warning(request, "Please verify your OTP code before creating a new password.")
+            return redirect("venuste:password_reset_otp")
+
         try:
             user = User.objects.get(id=user_id)
         except User.DoesNotExist:
             messages.error(request, "User not found. Please try again.")
             return redirect("venuste:password_reset")
 
-        form = PasswordResetOTPSetForm(request.POST, user=user)
+        form = PasswordResetSetPasswordForm(user=user, data=request.POST)
         if not form.is_valid():
             context = {"form": form}
             return self.render_to_response(context)
 
-        user.set_password(form.cleaned_data["new_password1"])
-        user.save(update_fields=["password"])
+        form.save()
 
         try:
             otp_record = PasswordResetOTP.objects.get(user=user)
             otp_record.used = True
-            otp_record.save()
+            otp_record.save(update_fields=["used"])
         except PasswordResetOTP.DoesNotExist:
             pass
 
-        del request.session["password_reset_email"]
-        del request.session["password_reset_user_id"]
+        self._clear_reset_session(request)
 
         log_security_event(
             "auth.password.reset.completed",
@@ -335,7 +427,7 @@ class PasswordResetConfirmView(TemplateView):
                 user = User.objects.get(id=user_id)
             except User.DoesNotExist:
                 user = None
-        context["form"] = kwargs.get("form") or PasswordResetOTPSetForm(user=user)
+        context["form"] = kwargs.get("form") or PasswordResetSetPasswordForm(user=user)
         return context
 
 
